@@ -4,7 +4,7 @@
 #include <unistd.h>
 
 int main(void) {
-    char *argv[3] = {"ls", "./", NULL};
+    char *argv[2] = {"mi-ls", "./"};
     pid_t pid;
 
 	pid = fork();
@@ -13,8 +13,8 @@ int main(void) {
 		exit(EXIT_FAILURE);
 	}
 	else if (pid == 0) {
-	    if (execvp("ls", argv)) {
-            perror("execvp");
+	    if (execl("/usr/bin/ls", argv[0], argv[1], (char * )NULL)){
+            perror("execl");
             exit(EXIT_FAILURE);
         }
 	}

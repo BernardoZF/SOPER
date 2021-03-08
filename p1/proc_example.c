@@ -22,8 +22,9 @@ int main(void) {
 		}
 		else if (pid > 0) {
 			printf("Padre %d\n", i);
+			wait(NULL);
 		}
 	}
-	wait(NULL);
+
 	exit(EXIT_SUCCESS);
 }

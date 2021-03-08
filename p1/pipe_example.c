@@ -41,7 +41,7 @@ int main(void) {
 		exit(EXIT_SUCCESS);
 	} else {
 		/* Cierre del descriptor de salida en el padre */
-		close(fd[1]);
+		/*close(fd[1]);*/
 		/* Leer algo de la tubería... el saludo! */
 		nbytes = 0;
 		do {
