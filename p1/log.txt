@@ -1,0 +1,6 @@
+sh -c inexistente
+Exited with value: 127
+./abort
+ith value: 127
+Terminated by signal: 6
+€
