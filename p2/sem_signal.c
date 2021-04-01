@@ -13,10 +13,20 @@ void manejador(int sig) {
     return;
 }
 
+void imprimir_semaforo(sem_t *sem) {
+	int sval;
+	if (sem_getvalue(sem, &sval) == -1) {
+		perror("sem_getvalue");
+		sem_unlink(SEM_NAME);
+		exit(EXIT_FAILURE);
+	}
+	printf("Valor del semáforo: %d\n", sval);
+	fflush(stdout);
+}
+
 int main(void) {
 	sem_t *sem = NULL;
     struct sigaction act;
-
 	if ((sem = sem_open(SEM_NAME, O_CREAT | O_EXCL, S_IRUSR | S_IWUSR, 0)) == SEM_FAILED) {
 		perror("sem_open");
 		exit(EXIT_FAILURE);
@@ -32,8 +42,11 @@ int main(void) {
         exit(EXIT_FAILURE);
     }
 
+    imprimir_semaforo(sem);
 	printf("Entrando en espera (PID=%d)\n", getpid());
+    imprimir_semaforo(sem);
 	sem_wait(sem);
+    imprimir_semaforo(sem);
     printf("Fin de la espera\n");
 	sem_unlink(SEM_NAME);
 }
