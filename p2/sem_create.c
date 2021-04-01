@@ -27,6 +27,7 @@ int main(void) {
 		perror("sem_open");
 		exit(EXIT_FAILURE);
 	}
+	sem_unlink(SEM_NAME);
 
 	imprimir_semaforo(sem);
 	sem_post(sem);
@@ -58,7 +59,7 @@ int main(void) {
 		printf("Fin zona protegida (padre)\n");
 		sem_post(sem);
 		sem_close(sem);
-		sem_unlink(SEM_NAME);
+		
 
 		wait(NULL);
 		exit(EXIT_SUCCESS);
