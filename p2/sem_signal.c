@@ -8,8 +8,10 @@
 #include <unistd.h>
 
 #define SEM_NAME "/example_sem"
+static volatile sig_atomic_t got_signal = 0;
 
 void manejador(int sig) {
+	got_signal = 1;
     return;
 }
 
@@ -27,6 +29,7 @@ void imprimir_semaforo(sem_t *sem) {
 int main(void) {
 	sem_t *sem = NULL;
     struct sigaction act;
+	sem_unlink(SEM_NAME);
 	if ((sem = sem_open(SEM_NAME, O_CREAT | O_EXCL, S_IRUSR | S_IWUSR, 0)) == SEM_FAILED) {
 		perror("sem_open");
 		exit(EXIT_FAILURE);
@@ -44,9 +47,13 @@ int main(void) {
 
     imprimir_semaforo(sem);
 	printf("Entrando en espera (PID=%d)\n", getpid());
-    imprimir_semaforo(sem);
-	sem_wait(sem);
-    imprimir_semaforo(sem);
+	while(sem_wait(sem)){
+		if(got_signal){
+			got_signal = 0;
+			printf("SEÑAL RECIBIDA\n");
+			imprimir_semaforo(sem);
+		}
+	}
     printf("Fin de la espera\n");
 	sem_unlink(SEM_NAME);
 }
