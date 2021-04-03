@@ -29,7 +29,6 @@ void imprimir_semaforo(sem_t *sem) {
 int main(void) {
 	sem_t *sem = NULL;
     struct sigaction act;
-	sem_unlink(SEM_NAME);
 	if ((sem = sem_open(SEM_NAME, O_CREAT | O_EXCL, S_IRUSR | S_IWUSR, 0)) == SEM_FAILED) {
 		perror("sem_open");
 		exit(EXIT_FAILURE);

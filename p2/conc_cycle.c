@@ -6,6 +6,9 @@
 #include <sys/wait.h>
 #include <unistd.h>
 #define SECS 10
+#define SEM_NAME "/proc_sem"
+#define SEM_NAME2 "/cycle_sem"
+
 
 static int end = 0; 
 
@@ -26,12 +29,27 @@ int main(int argc, char **argv){
     long ciclo = 0;
     struct sigaction act;
     sigset_t esperar;
+    sem_t *sem1 = NULL;
+    sem_t *sem2 = NULL;
+
+    sem_unlink(SEM_NAME2);
+    sem_unlink(SEM_NAME);
 
     /* INICIO APARTADO A */
     if(argc != 2){
         printf("Formato erroneo, por favor introduzca algo del estilo\n./conc_cycle <Entero>\n");
         return -1;
     }
+
+    if ((sem1 = sem_open(SEM_NAME, O_CREAT | O_EXCL, S_IRUSR | S_IWUSR, 0)) == SEM_FAILED) {
+		perror("sem_open");
+		exit(EXIT_FAILURE);
+	}
+
+    if ((sem2 = sem_open(SEM_NAME2, O_CREAT | O_EXCL, S_IRUSR | S_IWUSR, 0)) == SEM_FAILED) {
+		perror("sem_open");
+		exit(EXIT_FAILURE);
+	}
 
     NUM_PROC = atoi(argv[1]);
 
@@ -114,19 +132,47 @@ int main(int argc, char **argv){
                     exit(EXIT_SUCCESS);
                 }
             }else{
+                if(ciclo == 0 && getpid()==principal){
+                    kill(pid, SIGUSR1);
+                    printf("Ciclo: %ld, PID: %d\n", ciclo, getpid()); 
+                    fflush(stdout);
+                    sem_post(sem1);  
+                    
+                }else{
+                    if(getpid() == principal){
+                        sem_wait(sem2);
+                        kill(pid, SIGUSR1);
+                        sem_wait(sem1);
+                        printf("Ciclo: %ld, PID: %d\n", ciclo, getpid());
+                        fflush(stdout);      
+                        sem_post(sem1);
+                        
+                    }else{
+                        kill(pid, SIGUSR1);
+                        sem_wait(sem1);
+                        sleep(1);
+                        printf("Ciclo: %ld, PID: %d\n", ciclo, getpid());
+                        fflush(stdout);   
+                        sem_post(sem1);   
+                        
+                    }
+                     
+                }
               
-                kill(pid, SIGUSR1);
-                printf("Ciclo: %ld, PID: %d\n", ciclo, getpid()); 
-                fflush(stdout);             
+                      
                 
             }
         }else{
             if(end){
                 exit(EXIT_SUCCESS);
             }else{
+                
                 kill(principal, SIGUSR1);
+                sem_wait(sem1);
                 printf("Ciclo: %ld, PID: %d\n", ciclo, getpid());
                 fflush(stdout);
+                sem_post(sem1);
+                sem_post(sem2);
                 
             
             }
