@@ -24,7 +24,7 @@ int main(int argc, char **argv){
     pid_t principal;
     long ciclo = 0;
     struct sigaction act;
-    sigset_t set, esperar;
+    sigset_t esperar;
 
     /* INICIO APARTADO A */
     if(argc != 2){
