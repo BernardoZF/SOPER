@@ -8,10 +8,14 @@
 
 static int got_signal = 0;
 
-/* manejador : rutina de tratamiento de la señal SIGINT . */
-void manejador(int sig) {
-    got_signal = 1;
+
+/* manejador : rutina de tratamiento de la señal SIGUSR1 . */
+void manejador_usr(int sig) {
+    /*if(got_signal == 0){*/
+        got_signal = 1;
+    /*}*/
 }
+
 
 int main(int argc, char **argv){
     int NUM_PROC = 0;
@@ -30,11 +34,11 @@ int main(int argc, char **argv){
 
     struct sigaction act;
 
-    act.sa_handler = manejador;
+    act.sa_handler = manejador_usr;
     sigemptyset(&(act.sa_mask));
     act.sa_flags = 0;
 
-    if (sigaction(SIGINT, &act, NULL) < 0) {
+    if (sigaction(SIGUSR1, &act, NULL) < 0) {
         perror("sigaction");
         exit(EXIT_FAILURE);
     }
@@ -51,28 +55,38 @@ int main(int argc, char **argv){
         }
     }
     /* FIN APARTADO A */
+
+   
     
     /* INICIO APARTADO B */
     while(1){
         if(pid != 0){
             if(got_signal){
-                printf("%d\n", getpid());
+                got_signal = 0;
+                //printf("%d\n", getpid());
                 if(getpid()==principal){
-                    printf("soy el programa principal\n");
+                    //printf("soy el programa principal\n");
                 }
-                kill(pid, SIGINT);
-                sleep(9999);
+                kill(pid, SIGUSR1);
+                printf("Ciclo: %ld, PID: %d\n", ciclo, getpid()); 
+                fflush(stdout);             
+                ciclo++;  
             }
         }else{
             if(got_signal){
-                printf("%d\n", getpid());
+                got_signal = 0;
+                //printf("%d\n", getpid());
                 kill(principal, SIGUSR1);
-                sleep(9999);
+                printf("Ciclo: %ld, PID: %d\n", ciclo, getpid());
+                fflush(stdout);
+                ciclo++;
+                
             }
         }
-        
+        sleep(9999);
         
     }
+    /* FIN APARTADO B */
   
 
 }
