@@ -5,13 +5,14 @@
 #include <sys/stat.h>
 #include <sys/wait.h>
 #include <unistd.h>
+#define SECS 10
 
 static int end = 0; 
 
 /* manejador : rutina de tratamiento de la señal SIGUSR1 . */
 void manejador_usr(int sig) {
     /* ANYADIDO PORQUE SI NO IMPRIME MUY RAPIDO */
-    sleep(1);
+    
     return;
 }
 void manejador_fin(int sig){
@@ -44,12 +45,13 @@ int main(int argc, char **argv){
     sigdelset(&esperar, SIGINT);
     sigdelset(&esperar, SIGTERM);
     sigdelset(&esperar, SIGUSR1);
+    sigdelset(&esperar, SIGALRM);
 
     if (sigprocmask(SIG_BLOCK, &(act.sa_mask), NULL) < 0) {
         perror("sigprocmask");
         return -1;
     }  
-    /* APARTADO DE FIN */
+    /* APARTADO D FIN */
 
     if (sigaction(SIGUSR1, &act, NULL) < 0) {
         perror("sigaction");
@@ -57,7 +59,7 @@ int main(int argc, char **argv){
     }
 
     principal=getpid();
-    printf("%d\n", principal);
+
     for(int i = 1; i < NUM_PROC; i++ ){
         if(pid==0){
             pid = fork();
@@ -79,14 +81,23 @@ int main(int argc, char **argv){
         perror("sigaction");
         exit(EXIT_FAILURE);
         }
+        if (sigaction(SIGALRM, &act, NULL) < 0) {
+        perror("sigaction");
+        exit(EXIT_FAILURE);
+        }
 
     }else{
         if (sigaction(SIGTERM, &act, NULL) < 0) {
         perror("sigaction");
         exit(EXIT_FAILURE);
+        }
     }
     /*  FIN PRIMERA PARTE C */
 
+    if(getpid() == principal){
+        if (alarm(SECS)) {
+        fprintf(stderr, "Existe una alarma previa establecida\n");
+        }
     }
     
     /* INICIO APARTADO B  los if(end) SON DEL APARTADO C*/
@@ -131,5 +142,3 @@ int main(int argc, char **argv){
 }
 
 
-/* BLOQUEAMOS TODAS LAS SEÑALES EXCEPTO SIGINT SIGTERM Y SIGUSR1 */
-/* ESPERAMOS CON sigsuspend */
