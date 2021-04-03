@@ -10,6 +10,8 @@ static int end = 0;
 
 /* manejador : rutina de tratamiento de la señal SIGUSR1 . */
 void manejador_usr(int sig) {
+    /* ANYADIDO PORQUE SI NO IMPRIME MUY RAPIDO */
+    sleep(1);
     return;
 }
 void manejador_fin(int sig){
@@ -22,7 +24,7 @@ int main(int argc, char **argv){
     pid_t principal;
     long ciclo = 0;
     struct sigaction act;
-    struct sigaction act_end;
+    sigset_t set, esperar;
 
     /* INICIO APARTADO A */
     if(argc != 2){
@@ -33,8 +35,21 @@ int main(int argc, char **argv){
     NUM_PROC = atoi(argv[1]);
 
     act.sa_handler = manejador_usr;
-    sigemptyset(&(act.sa_mask));
+    /* CAMBIADO PARA EL APARTADO D */
+    sigfillset(&(act.sa_mask)); 
     act.sa_flags = 0;
+
+    /* APARTADO D INICIO*/
+    sigfillset(&esperar);
+    sigdelset(&esperar, SIGINT);
+    sigdelset(&esperar, SIGTERM);
+    sigdelset(&esperar, SIGUSR1);
+
+    if (sigprocmask(SIG_BLOCK, &(act.sa_mask), NULL) < 0) {
+        perror("sigprocmask");
+        return -1;
+    }  
+    /* APARTADO DE FIN */
 
     if (sigaction(SIGUSR1, &act, NULL) < 0) {
         perror("sigaction");
@@ -57,18 +72,16 @@ int main(int argc, char **argv){
     
     
     /* PRIMERA PARTE APARTADO C*/
-    act_end.sa_handler = manejador_fin;
-    sigemptyset(&(act.sa_mask));
-    act.sa_flags = 0;
-
+    act.sa_handler = manejador_fin;
+    
     if(getpid()==principal){
-        if (sigaction(SIGINT, &act_end, NULL) < 0) {
+        if (sigaction(SIGINT, &act, NULL) < 0) {
         perror("sigaction");
         exit(EXIT_FAILURE);
         }
 
     }else{
-        if (sigaction(SIGTERM, &act_end, NULL) < 0) {
+        if (sigaction(SIGTERM, &act, NULL) < 0) {
         perror("sigaction");
         exit(EXIT_FAILURE);
     }
@@ -108,10 +121,15 @@ int main(int argc, char **argv){
             }
         }
         ciclo++;
-        sleep(9999);
+        /* CAMBIADO PARA EL APARTADO D */
+        sigsuspend(&esperar);
         
     }
     /* FIN APARTADO B */
   
 
 }
+
+
+/* BLOQUEAMOS TODAS LAS SEÑALES EXCEPTO SIGINT SIGTERM Y SIGUSR1 */
+/* ESPERAMOS CON sigsuspend */
