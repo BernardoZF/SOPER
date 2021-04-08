@@ -23,8 +23,11 @@ int main(int argc, char *argv[]) {
     }
     dprintf(fd, "%s", MESSAGE);
     /* Get size of the file. */
+    fstat(fd, &statbuf);
+    printf("Fichero con tamanio: %ld\n", statbuf.st_size);
 
     /* Truncate the file to size 5. */
+    ftruncate(fd, 5);
 
     close(fd);
     exit(EXIT_SUCCESS);
