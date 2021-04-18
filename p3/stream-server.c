@@ -3,6 +3,7 @@
 #include <stdlib.h>
 #include <sys/mman.h>
 #include <unistd.h>
+#include <semaphore.h>
 
 #define SHM_NAME "/shm_example"
 
@@ -10,12 +11,17 @@ typedef struct _so{
     char bf[5];
     int post_pos;
     int get_pos;
+    sem_t sem_mutex;
+    sem_t sem_empty;
+    sem_t sem_fill;
 }so;
 
 int main(void) {
     int i, fd_shm;
     so *so = NULL;
     FILE *pf;
+    char c;
+    
 
     if(argc != 2){
         return -1;
@@ -42,7 +48,19 @@ int main(void) {
 
 
     /*fgetc*/
-
+    while((c = fgetc(pf)) != EOF){
+        if(sem_timedwait(so->sem_empty, 2)){
+            printf("Error en llenado de buffer");
+            return 0;
+        }
+        sem_wait(so->sem_mutex);
+            so->bf[so->post_pos] = c;
+            so->post_pos = (so->post_pos +1) % 5;
+        sem_post(so->sem_mutex);
+        sem_post(sem_fill);
+    }
+    so->bf[so->post_pos] = '\0';
+    
     /* Unmapping of the shared memory */
     munmap(so, sizeof(so));
 

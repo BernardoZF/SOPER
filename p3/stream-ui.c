@@ -6,6 +6,7 @@
 #include <sys/stat.h>
 #include <sys/types.h>
 #include <unistd.h>
+#include <sempahore.h>
 
 #define SHM_NAME "/shm_example"
 
@@ -13,6 +14,9 @@ typedef struct _so{
     char bf[5];
     int post_pos;
     int get_pos;
+    sem_t sem_mutex;
+    sem_t sem_empty;
+    sem_t sem_fill;
 }so;
 
 int main(void) {
@@ -53,6 +57,16 @@ int main(void) {
     so->get_pos = 0;
     so->post_pos = 0;
 
+    if(sem_init(so->sem_mutex, 1, 1)==-1){
+        //CDE
+    }
+    if(sem_init(so->sem_fill, 1, 0)==-1){
+        //CDE
+    }
+    if(sem_init(so->sem_empty, 1, 5)==-1){
+        //CDE
+    }
+
     server = fork();
     if(server<0){
         //CDE
@@ -62,9 +76,12 @@ int main(void) {
     }
     else{
         //EXEC SERVER
+        execlp("./stream-server", "./stream-server", argv[1], (char * )NULL);
     }
     if(client == 0){
         //EXEC cliente
+        execlp("./stream-client", "./stream-client", argv[2], (char * )NULL);
+
     }
 
     if(server != 0){
