@@ -7,6 +7,7 @@
 #include <sys/types.h>
 #include <unistd.h>
 #include <semaphore.h>
+#include <sys/wait.h>
 
 #define SHM_NAME "/shm_example"
 
@@ -14,16 +15,16 @@ typedef struct _so{
     char bf[5];
     int post_pos;
     int get_pos;
-    sem_t *sem_mutex;
-    sem_t *sem_empty;
-    sem_t *sem_fill;
-}so;
+    sem_t sem_mutex;
+    sem_t sem_empty;
+    sem_t sem_fill;
+}So;
 
 
 
 int main(int argc, char *argv[]) {
-    int i, fd_shm;
-    so *so = NULL;
+    int fd_shm;
+    So *so = NULL;
     pid_t server = 1, client=1;
 
     if(argc != 3){
@@ -40,14 +41,14 @@ int main(int argc, char *argv[]) {
     printf("Archivo creado con exito\n");
 
     /* Resize of the memory segment. */
-    if (ftruncate(fd_shm, sizeof(so)) == -1) {
+    if (ftruncate(fd_shm, sizeof(So)) == -1) {
         perror("ftruncate");
         shm_unlink(SHM_NAME);
         exit(EXIT_FAILURE);
     } printf("memoria truncada con exito\n");
 
     /* Mapping of the memory segment. */
-    so = mmap(NULL, sizeof(so), PROT_READ | PROT_WRITE, MAP_SHARED, fd_shm, 0);
+    so = (So *)mmap(NULL, sizeof(So), PROT_READ | PROT_WRITE, MAP_SHARED, fd_shm, 0);
     close(fd_shm);
     if (so == MAP_FAILED) {
         perror("mmap");
@@ -60,37 +61,35 @@ int main(int argc, char *argv[]) {
     /* Initialization of the memory. */
     so->get_pos = 0;
     so->post_pos = 0;
-    for(i = 0; i<5;i++){
-        so->bf[i]='a';
-    }
+    
 
-    /*printf("Entrando creacion primer semaforo\n");
-    if(sem_init(so->sem_mutex, 1, 1) == -1){
+    printf("Entrando creacion primer semaforo\n");
+    if(sem_init(&so->sem_mutex, 1, 1) == -1){
         munmap(so, sizeof(so));
         shm_unlink(SHM_NAME);
         exit(EXIT_FAILURE);
         //CDE
     }
     printf("despues de crear primer semaforo\n");
-    if(sem_init(so->sem_fill, 1, 0) == -1){
+    if(sem_init(&so->sem_fill, 1, 0) == -1){
         munmap(so, sizeof(so));
         shm_unlink(SHM_NAME);
-        sem_destroy(so->sem_mutex);
+        sem_destroy(&so->sem_mutex);
         exit(EXIT_FAILURE);
         //CDE
     }
-    if(sem_init(so->sem_empty, 1, 5)==-1){
+    if(sem_init(&so->sem_empty, 1, 5)==-1){
         munmap(so, sizeof(so));
         shm_unlink(SHM_NAME);
-        sem_destroy(so->sem_mutex);
-        sem_destroy(so->sem_fill);
+        sem_destroy(&so->sem_mutex);
+        sem_destroy(&so->sem_fill);
         exit(EXIT_FAILURE);
         //CDE
-    }*/
+    }
 
     server = fork();
     if(server<0){
-        return;
+        return -1;
         //CDE
     }
     if(server == 0){
@@ -122,9 +121,11 @@ int main(int argc, char *argv[]) {
     /* Unmapping and freeing of the shared memory */
     munmap(so, sizeof(so));
     shm_unlink(SHM_NAME);
-    /*sem_destroy(so->sem_mutex);
-    sem_destroy(so->sem_fill);
-    sem_destroy(so->sem_empty);*/
+    /*
+    sem_destroy(&so->sem_mutex);
+    sem_destroy(&so->sem_fill);
+    sem_destroy(&so->sem_empty);
+    */
     
 
     exit(EXIT_SUCCESS);
