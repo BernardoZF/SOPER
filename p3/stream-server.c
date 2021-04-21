@@ -77,12 +77,13 @@ int main(int argc, char *argv[]) {
 
 
     while((c = fgetc(pf)) != EOF){
-        
+        printf("esperando mensaje en servidor\n");
         if (mq_receive(server, entrada, sizeof(entrada), NULL) == -1) {
             fprintf(stderr, "Error receiving message\n");
             return EXIT_FAILURE;
         }
         if(strcmp(entrada, "post")==0){
+            printf("%c\n", c);
             if (clock_gettime(CLOCK_REALTIME, &t) == -1){   
                 printf("Error estableciendo el tiempo de espera\n");
                 return -1;
@@ -91,10 +92,10 @@ int main(int argc, char *argv[]) {
             t.tv_sec += 2;
             if(sem_timedwait(&so->sem_empty, &t)){
                 printf("Error en llenado de buffer\n");
-                return 0;
             }
             sem_wait(&so->sem_mutex);
-            so->bf[so->post_pos] = (char )c;
+            so->bf[so->post_pos] = c;
+            printf("%c\n", so->bf[so->post_pos]);
             sem_post(&so->sem_mutex);
             so->post_pos = (so->post_pos +1) % 5;
             sem_post(&so->sem_fill);

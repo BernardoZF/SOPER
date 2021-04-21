@@ -90,7 +90,7 @@ int main(int argc, char *argv[]) {
     /* Initialization of the memory. */
     so->get_pos = 0;
     so->post_pos = 0;
-    
+    so->bf[0]= 'a';
 
     printf("Entrando creacion primer semaforo\n");
     if(sem_init(&so->sem_mutex, 1, 1) == -1){
@@ -150,7 +150,7 @@ int main(int argc, char *argv[]) {
 
                 }else if (strcmp(entrada, "get\n") == 0){
                     printf("entrada == get \n");
-                    if (mq_send(clientq, entrada, strlen(entrada), 1) == -1) {
+                    if (mq_send(clientq, entrada, 5, 1) == -1) {
                         perror("mq_send");
                         mq_close(server);
                         mq_close(client);

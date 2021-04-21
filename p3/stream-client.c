@@ -28,7 +28,6 @@ int main(int argc, char *argv[]) {
     So *so;
     FILE *pf = NULL;
     struct timespec t;
-    char entrada[5];
     struct mq_attr attributes = {
         .mq_flags = 0,
         .mq_maxmsg = 10,
@@ -57,6 +56,7 @@ int main(int argc, char *argv[]) {
         return -1;
     }
 
+   
     /* Open of the shared memory. */
     if ((fd_shm = shm_open(argv[2], O_RDWR, 0)) == -1) {
         perror("shm_open");
@@ -74,14 +74,23 @@ int main(int argc, char *argv[]) {
 
 
     /*fputc*/
-    while(so->bf[so->get_pos] != '\0'){
-
+    printf("antes del bucle cliente\n");
+    while(1){
+        printf("esperando el mensaje en cliente\n");
+        char entrada[5];
         if (mq_receive(client, entrada, sizeof(entrada), NULL) == -1) {
             fprintf(stderr, "Error receiving message\n");
             return EXIT_FAILURE;
         }
-        if(strcmp(entrada, "get\n")==0){
-            if (clock_gettime(CLOCK_REALTIME, &t) == -1){   
+        if(strcmp(entrada, "exit")==0){
+            break;
+            
+        }
+        if(so->bf[so->get_pos] == '\0'){
+            break;
+        }
+        else{
+           if (clock_gettime(CLOCK_REALTIME, &t) == -1){   
                 printf("Error estableciendo el tiempo de espera\n");
                 return 0;
             }
@@ -91,19 +100,18 @@ int main(int argc, char *argv[]) {
                 printf("Error cola llena\n");
             }else{
                 sem_wait(&so->sem_mutex);
-                    fputc(so->bf[so->get_pos], pf);
+                printf("%c\n", so->bf[so->get_pos]);
+                fputc(so->bf[so->get_pos], pf);
                 sem_post(&so->sem_mutex);
                 so->get_pos = (so->get_pos + 1) % 5;
                 sem_post(&so->sem_empty);
             } 
-            
-        }
-        else{
-            break;
         }
         
 
     }
+
+    printf("fin del bucle de cliente\n");
 
    
     
