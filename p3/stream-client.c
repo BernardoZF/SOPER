@@ -4,7 +4,10 @@
 #include <sys/mman.h>
 #include <unistd.h>
 #include <time.h>
+#include <string.h>
 #include <semaphore.h>
+#include <mqueue.h>
+
 
 
 #define SHM_NAME "/shm_example"
@@ -25,11 +28,28 @@ int main(int argc, char *argv[]) {
     So *so;
     FILE *pf = NULL;
     struct timespec t;
+    char entrada[5];
+    struct mq_attr attributes = {
+        .mq_flags = 0,
+        .mq_maxmsg = 10,
+        .mq_curmsgs = 0,
+        .mq_msgsize = 5*sizeof(char)
+    };
     
 
-    if(argc != 2){
+    if(argc != 4){
         printf("mal argumentos en el servidor\n");
         return 0;
+    }
+
+    mqd_t client = mq_open(argv[3],
+        O_CREAT | O_RDONLY, /* This process is only going to send messages */
+        S_IRUSR | S_IWUSR, /* The user can read and write */
+        &attributes);
+
+    if (client == (mqd_t)-1) {
+        fprintf(stderr, "Error opening the queue\n");
+        return EXIT_FAILURE;
     }
 
     pf = fopen(argv[1], "w");
@@ -38,7 +58,7 @@ int main(int argc, char *argv[]) {
     }
 
     /* Open of the shared memory. */
-    if ((fd_shm = shm_open(SHM_NAME, O_RDWR, 0)) == -1) {
+    if ((fd_shm = shm_open(argv[2], O_RDWR, 0)) == -1) {
         perror("shm_open");
         exit(EXIT_FAILURE);
     }
@@ -54,23 +74,35 @@ int main(int argc, char *argv[]) {
 
 
     /*fputc*/
-  
     while(so->bf[so->get_pos] != '\0'){
-        if (clock_gettime(CLOCK_REALTIME, &t) == -1){   
-            printf("Error estableciendo el tiempo de espera\n");
-            return 0;
-        }
 
-        t.tv_sec += 2;
-        if(sem_timedwait(&so->sem_fill, &t)){
-            printf("Error cola llena\n");
-            return 0;
+        if (mq_receive(client, entrada, sizeof(entrada), NULL) == -1) {
+            fprintf(stderr, "Error receiving message\n");
+            return EXIT_FAILURE;
         }
-        sem_wait(&so->sem_mutex);
-            fputc(so->bf[so->get_pos], pf);
-        sem_post(&so->sem_mutex);
-        so->get_pos = (so->get_pos+1)%5;
-        sem_post(&so->sem_empty);
+        if(strcmp(entrada, "get\n")==0){
+            if (clock_gettime(CLOCK_REALTIME, &t) == -1){   
+                printf("Error estableciendo el tiempo de espera\n");
+                return 0;
+            }
+
+            t.tv_sec += 2;
+            if(sem_timedwait(&so->sem_fill, &t)){
+                printf("Error cola llena\n");
+            }else{
+                sem_wait(&so->sem_mutex);
+                    fputc(so->bf[so->get_pos], pf);
+                sem_post(&so->sem_mutex);
+                so->get_pos = (so->get_pos + 1) % 5;
+                sem_post(&so->sem_empty);
+            } 
+            
+        }
+        else{
+            break;
+        }
+        
+
     }
 
    
@@ -78,6 +110,7 @@ int main(int argc, char *argv[]) {
 
     /* Unmapping of the shared memory */
     munmap(so, sizeof(so));
+    mq_close(client);
 
     exit(EXIT_SUCCESS);
 }

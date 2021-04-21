@@ -8,8 +8,11 @@
 #include <unistd.h>
 #include <semaphore.h>
 #include <sys/wait.h>
+#include <mqueue.h>
 
 #define SHM_NAME "/shm_example"
+#define SERVER "/server"
+#define CLIENT "/client"
 
 typedef struct _so{
     char bf[5];
@@ -26,12 +29,38 @@ int main(int argc, char *argv[]) {
     int fd_shm;
     So *so = NULL;
     pid_t server = 1, client=1;
+    struct mq_attr attributes = {
+        .mq_flags = 0,
+        .mq_maxmsg = 10,
+        .mq_curmsgs = 0,
+        .mq_msgsize = 5*sizeof(char)
+    };
 
     if(argc != 3){
         return -1;
     }
     
     shm_unlink (SHM_NAME);
+
+    mqd_t serverq = mq_open(SERVER,
+        O_CREAT | O_WRONLY, /* This process is only going to send messages */
+        S_IRUSR | S_IWUSR, /* The user can read and write */
+        &attributes);
+
+    if (serverq == (mqd_t)-1) {
+        fprintf(stderr, "Error opening the queue\n");
+        return EXIT_FAILURE;
+    }
+
+    mqd_t clientq = mq_open(CLIENT,
+        O_CREAT | O_WRONLY, /* This process is only going to send messages */
+        S_IRUSR | S_IWUSR, /* The user can read and write */
+        &attributes);
+
+    if (clientq == (mqd_t)-1) {
+        fprintf(stderr, "Error opening the queue\n");
+        return EXIT_FAILURE;
+    }
 
     /* Creation of the shared memory. */
     if ((fd_shm = shm_open(SHM_NAME, O_RDWR | O_CREAT | O_EXCL,  S_IRUSR | S_IWUSR)) == -1) {
@@ -95,7 +124,7 @@ int main(int argc, char *argv[]) {
     if(server == 0){
         //EXEC SERVER
         printf("exec server lanzado\n");
-        execl("stream-server", "stream-server", argv[1], (char *)so, (char * )NULL);
+        execl("stream-server", "stream-server", argv[1], SHM_NAME, SERVER, (char * )NULL);
     }else{
         client = fork();
         if(client<0){
@@ -104,9 +133,47 @@ int main(int argc, char *argv[]) {
         else if(client == 0){
             //EXEC cliente
             printf("exec cliente lanzado\n");
-            execl("stream-client", "stream-client", argv[2], (char * )NULL);
+            execl("stream-client", "stream-client", argv[2], SHM_NAME, CLIENT, (char * )NULL);
 
         }else{
+            while(1){
+               char entrada[5];
+               fgets(entrada, sizeof(entrada),stdin);
+                if(strcmp(entrada, "post")==0){
+                                        printf("entrada == post \n");
+                    if (mq_send(serverq, entrada, strlen(entrada) + 1, 1) == -1) {
+                        perror("mq_send");
+                        mq_close(server);
+                        mq_close(client);
+                        exit(EXIT_FAILURE);
+                    }
+
+                }else if (strcmp(entrada, "get\n") == 0){
+                    printf("entrada == get \n");
+                    if (mq_send(clientq, entrada, strlen(entrada), 1) == -1) {
+                        perror("mq_send");
+                        mq_close(server);
+                        mq_close(client);
+                        exit(EXIT_FAILURE);
+                    }
+                    printf("enviado el mensaje en la cola client\n");
+                }
+                else if(strcmp(entrada, "exit")==0){
+                     if (mq_send(serverq, entrada, strlen(entrada) + 1, 1) == -1) {
+                        perror("mq_send");
+                        mq_close(server);
+                        mq_close(client);
+                        exit(EXIT_FAILURE);
+                    }
+                    if (mq_send(clientq, entrada, strlen(entrada) + 1, 1) == -1) {
+                        perror("mq_send");
+                        mq_close(server);
+                        mq_close(client);
+                        exit(EXIT_FAILURE);
+                    }
+                    break;
+                }
+            }
             wait(NULL);
             wait(NULL);
         }
@@ -121,11 +188,14 @@ int main(int argc, char *argv[]) {
     /* Unmapping and freeing of the shared memory */
     munmap(so, sizeof(so));
     shm_unlink(SHM_NAME);
-    /*
+    mq_unlink(SERVER);
+    mq_unlink(CLIENT);
+    mq_close(server);
+    mq_close(client);
     sem_destroy(&so->sem_mutex);
     sem_destroy(&so->sem_fill);
     sem_destroy(&so->sem_empty);
-    */
+    
     
 
     exit(EXIT_SUCCESS);
