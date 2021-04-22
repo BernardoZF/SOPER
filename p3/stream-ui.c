@@ -1,3 +1,13 @@
+
+/**
+ * @brief Implementa stream-ui con las funcionalidades descritas
+ *
+ * @file stream-ui.c
+ * @authors Bernardo Zambrano y Luis Nucifora
+ * @version 1.0
+ * @date 21/04/2021
+ * @copyright GNU Public License
+ */
 #include <fcntl.h>
 #include <stdio.h>
 #include <stdlib.h>
@@ -123,7 +133,6 @@ int main(int argc, char *argv[]) {
     }
     if(server == 0){
         //EXEC SERVER
-        printf("exec server lanzado\n");
         execl("stream-server", "stream-server", argv[1], SHM_NAME, SERVER, (char * )NULL);
     }else{
         client = fork();
@@ -132,7 +141,6 @@ int main(int argc, char *argv[]) {
         }
         else if(client == 0){
             //EXEC cliente
-            printf("exec cliente lanzado\n");
             execl("stream-client", "stream-client", argv[2], SHM_NAME, CLIENT, (char * )NULL);
 
         }else{
@@ -140,7 +148,6 @@ int main(int argc, char *argv[]) {
                char entrada[5];
                fgets(entrada, sizeof(entrada),stdin);
                 if(strcmp(entrada, "post")==0){
-                                        printf("entrada == post \n");
                     if (mq_send(serverq, entrada, strlen(entrada) + 1, 1) == -1) {
                         perror("mq_send");
                         mq_close(server);
@@ -149,14 +156,12 @@ int main(int argc, char *argv[]) {
                     }
 
                 }else if (strcmp(entrada, "get\n") == 0){
-                    printf("entrada == get \n");
                     if (mq_send(clientq, entrada, 5, 1) == -1) {
                         perror("mq_send");
                         mq_close(server);
                         mq_close(client);
                         exit(EXIT_FAILURE);
                     }
-                    printf("enviado el mensaje en la cola client\n");
                 }
                 else if(strcmp(entrada, "exit")==0){
                      if (mq_send(serverq, entrada, strlen(entrada) + 1, 1) == -1) {
@@ -190,8 +195,8 @@ int main(int argc, char *argv[]) {
     shm_unlink(SHM_NAME);
     mq_unlink(SERVER);
     mq_unlink(CLIENT);
-    mq_close(server);
-    mq_close(client);
+    mq_close(serverq);
+    mq_close(clientq);
     sem_destroy(&so->sem_mutex);
     sem_destroy(&so->sem_fill);
     sem_destroy(&so->sem_empty);

@@ -1,3 +1,12 @@
+/**
+ * @brief Implementa stream-server con las funcionalidades descritas en el pdf de la practica
+ *
+ * @file stream-server.c
+ * @authors Bernardo Zambrano y Luis Nucifora
+ * @version 1.0
+ * @date 21/04/2021
+ * @copyright GNU Public License
+ */
 #include <fcntl.h>
 #include <stdio.h>
 #include <stdlib.h>
@@ -9,8 +18,6 @@
 #include <mqueue.h>
 
 
-
-#define SHM_NAME "/shm_example"
 
 typedef struct _so{
     char bf[5];
@@ -45,7 +52,7 @@ int main(int argc, char *argv[]) {
     }
 
     mqd_t server = mq_open(argv[3],
-        O_CREAT | O_RDONLY, /* This process is only going to send messages */
+        O_CREAT | O_RDONLY, /* This process is only going to read messages */
         S_IRUSR | S_IWUSR, /* The user can read and write */
         &attributes);
 
@@ -77,13 +84,11 @@ int main(int argc, char *argv[]) {
 
 
     while((c = fgetc(pf)) != EOF){
-        printf("esperando mensaje en servidor\n");
         if (mq_receive(server, entrada, sizeof(entrada), NULL) == -1) {
             fprintf(stderr, "Error receiving message\n");
             return EXIT_FAILURE;
         }
         if(strcmp(entrada, "post")==0){
-            printf("%c\n", c);
             if (clock_gettime(CLOCK_REALTIME, &t) == -1){   
                 printf("Error estableciendo el tiempo de espera\n");
                 return -1;
@@ -92,13 +97,14 @@ int main(int argc, char *argv[]) {
             t.tv_sec += 2;
             if(sem_timedwait(&so->sem_empty, &t)){
                 printf("Error en llenado de buffer\n");
+            }else{
+                sem_wait(&so->sem_mutex);
+                so->bf[so->post_pos] = c;
+                sem_post(&so->sem_mutex);
+                so->post_pos = (so->post_pos +1) % 5;
+                sem_post(&so->sem_fill);
             }
-            sem_wait(&so->sem_mutex);
-            so->bf[so->post_pos] = c;
-            printf("%c\n", so->bf[so->post_pos]);
-            sem_post(&so->sem_mutex);
-            so->post_pos = (so->post_pos +1) % 5;
-            sem_post(&so->sem_fill);
+            
         }else{
             break;
         }

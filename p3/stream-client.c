@@ -1,3 +1,13 @@
+/**
+ * @brief Implementa stream-client con las funcionalidades descritas en el pdf de la practica
+ *
+ * @file stream-client.c
+ * @authors Bernardo Zambrano y Luis Nucifora
+ * @version 1.0
+ * @date 21/04/2021
+ * @copyright GNU Public License
+ */
+
 #include <fcntl.h>
 #include <stdio.h>
 #include <stdlib.h>
@@ -74,9 +84,7 @@ int main(int argc, char *argv[]) {
 
 
     /*fputc*/
-    printf("antes del bucle cliente\n");
     while(1){
-        printf("esperando el mensaje en cliente\n");
         char entrada[5];
         if (mq_receive(client, entrada, sizeof(entrada), NULL) == -1) {
             fprintf(stderr, "Error receiving message\n");
@@ -100,7 +108,6 @@ int main(int argc, char *argv[]) {
                 printf("Error cola llena\n");
             }else{
                 sem_wait(&so->sem_mutex);
-                printf("%c\n", so->bf[so->get_pos]);
                 fputc(so->bf[so->get_pos], pf);
                 sem_post(&so->sem_mutex);
                 so->get_pos = (so->get_pos + 1) % 5;
@@ -111,7 +118,6 @@ int main(int argc, char *argv[]) {
 
     }
 
-    printf("fin del bucle de cliente\n");
 
    
     
