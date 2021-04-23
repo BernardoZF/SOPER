@@ -1,8 +1,8 @@
 TO DO 
 
 **MINERO** 
-1.  Minar con distintos trabajadores(hilos) 
-2.  Crear los bloques y almacenarlos
+1.  Minar con distintos trabajadores(hilos)   [x]
+2.  Crear los bloques y almacenarlos 
 3.  Todo lo de la red de mineros que se hace con archivos compartidos
 
 **RED**

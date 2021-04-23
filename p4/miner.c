@@ -25,7 +25,7 @@ void print_blocks(Block *plast_block, int num_wallets) {
     printf("A total of %d blocks were printed\n", i);
 }
 
-int main(int argc, char *argv[]) {
+/*int main(int argc, char *argv[]) {
     long int i, target;
 
     if (argc != 2) {
@@ -44,4 +44,4 @@ int main(int argc, char *argv[]) {
     }
     fprintf(stderr, "\nSearch failed\n");
     exit(EXIT_FAILURE);
-}
+}*/
