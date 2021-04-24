@@ -5,20 +5,27 @@ TO DO
 2.  Crear los bloques y almacenarlos  ✔️
 3.  Crear monitor para que imprima la informacion ya que ahora lo hace el programa minero y esto no deberia ser asi 
 4.  Manejar la señal SIGUSR2 para detener ejecucion
-5.  
-6.  Todo lo de la red de mineros que se hace con archivos compartidos
+5.  Todo lo de la red de mineros que se hace con archivos compartidos
+6.  Manejar SIGUSR1 para saber si un minero esta activo o no
+7.  Volver a manejar SIUSR2 para iniciar el proceso de votacion
+8.  Crear sistema de votacion
+9.  Todos los mineros agregan el bloque en caso de que sea aceptado en votacion [:venezuela::ru::north_korea:]
+10. Preparar nuevo bloque y otro ronda
+11. **Si hay monitor**  enviar por cola el nuevo bloque cada uno de los mineros si es correcto prioridad 2 si no 1
+12. Implementar funcion para imprimir cadena de bloques de un minero a un fichero identificado con nombre igual al PID
+13. Manejar SIGINT para acabar
 
 **MONITOR**
 1.  Crear proceso hijo  [fork]
-2.  Recibe nuevos bloques   [¿?]
+2.  Recibe nuevos bloques   [Cola de mensajes]
 3.  El padre almacena los 10 ultimos bloques [array circular]
-4.  Padre al recibir mensaje sobre un bloque y comprueba solucion  [¿?]
+4.  Padre al recibir mensaje sobre un bloque y comprueba solucion  [¿Como recibir estructura por Q?]
 5.  Padre si el id no esta guardado borra el mas antiguo    [array circular]
 6.  Padre envia COPIA por TUBERIA de cada nuevo bloque al hijo [Toston de hacer por tuberia :upside_down_face:]
 7.  Hijo almacena TODOS los bloques         [La propia estructura bloque supongo]
 8.  Hijo imprime los bloques cada 5 secs    [bucle con sleep 5 supongo]
 9.  Finaliza al recibir SIGINT  [manejador de señales]
-10. REINICIAR???????? llamando de nuevo a ejecutarlo [¿?¿?¿?¿?¿ :upside_down_face: :exploding_head: ?¿?¿?¿?¿?]
+10. REINICIAR???????? llamando de nuevo a ejecutarlo [¿?¿?¿?¿?¿ :upside_down_face::exploding_head: ?¿?¿?¿?¿?]
     
 **RED**
 1. Esto es abrir secciones de mem compartida y que se acceda a ella desde mineros 

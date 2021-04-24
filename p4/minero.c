@@ -21,33 +21,17 @@ void *work_mine(void *arg)
 {
     Wd *wd;
     wd = arg;
-    if (wd->cycles < 1)
+
+    while (sol_found == 0)
     {
-        while (sol_found == 0)
+        if (wd->target == simple_hash(wd->to_check))
         {
-            if (wd->target == simple_hash(wd->to_check))
-            {
-                solution = wd->to_check;
-                sol_found = 1;
-            }
-            else
-            {
-                wd->to_check = (wd->to_check + 1) % PRIME;
-            }
+            solution = wd->to_check;
+            sol_found = 1;
         }
-    }
-    else
-    {
-        for (int i = 0; i < wd->cycles; i++)
+        else
         {
-            if (wd->target == simple_hash(wd->to_check))
-            {
-                solution = wd->to_check;
-            }
-            else
-            {
-                wd->to_check = (wd->to_check + 1) % PRIME;
-            }
+            wd->to_check = (wd->to_check + 1) % PRIME;
         }
     }
 
@@ -147,45 +131,95 @@ int main(int argc, char **argv)
         return -1;
     }
 
-    /* Repeticion un numero cualquiera de veces para comprobar si se crean bien todos los bloques */
-    for (int a = 0; a < 10; a++)
+    /* Rondas pasadas como argumento */
+    if (n_cycles > 0)
     {
-        for (int i = 0; i < n_workers; i++)
+        for (int a = 0; a < n_cycles; a++)
         {
-            workers_data[i].target = b->target; // cambiarlo por el target buscado par cada caso
-            workers_data[i].to_check = section * i;
-            workers_data[i].cycles = n_cycles;
-        }
-
-        for (int i = 0; i < n_workers; i++)
-        {
-            pthread_create(&workers[i], NULL, work_mine, &workers_data[i]);
-        }
-        for (int i = 0; i < n_workers; i++)
-        {
-            pthread_join(workers[i], NULL);
-        }
-
-        if (sol_found)
-        {
-            /* actualizo la solucion */
-            b->solution = solution;
-            b->is_valid = 1;
-            /* Creo el siguiente bloque */
-            next = create_new_block(b);
-            if (!next)
+            for (int i = 0; i < n_workers; i++)
             {
-                printf("error en la reserva de memoria del bloque");
-                free(workers);
-                free(workers_data);
-                return -1;
+                workers_data[i].target = b->target; 
+                workers_data[i].to_check = section * i;
+                workers_data[i].cycles = n_cycles;
             }
-            /* Establezco el siguiente bloque */
-            b->next = next;
-            /* Y apunto al siguiente bloque*/
-            b = b->next;
 
-            sol_found = 0;
+            for (int i = 0; i < n_workers; i++)
+            {
+                pthread_create(&workers[i], NULL, work_mine, &workers_data[i]);
+            }
+            for (int i = 0; i < n_workers; i++)
+            {
+                pthread_join(workers[i], NULL);
+            }
+
+            if (sol_found)
+            {
+                /* actualizo la solucion */
+                b->solution = solution;
+                b->is_valid = 1;
+                /* Creo el siguiente bloque */
+                next = create_new_block(b);
+                if (!next)
+                {
+                    printf("error en la reserva de memoria del bloque");
+                    free(workers);
+                    free(workers_data);
+                    return -1;
+                }
+                /* Establezco el siguiente bloque */
+                b->next = next;
+                /* Y apunto al siguiente bloque*/
+                b = b->next;
+
+                sol_found = 0;
+            }
+        }
+    }
+    else
+    {
+        /* Hasta que no recibes señal no acaba */
+        while (1)
+        {
+            for (int a = 0; a < n_cycles; a++)
+            {
+                for (int i = 0; i < n_workers; i++)
+                {
+                    workers_data[i].target = b->target; // cambiarlo por el target buscado par cada caso
+                    workers_data[i].to_check = section * i;
+                    workers_data[i].cycles = n_cycles;
+                }
+
+                for (int i = 0; i < n_workers; i++)
+                {
+                    pthread_create(&workers[i], NULL, work_mine, &workers_data[i]);
+                }
+                for (int i = 0; i < n_workers; i++)
+                {
+                    pthread_join(workers[i], NULL);
+                }
+
+                if (sol_found)
+                {
+                    /* actualizo la solucion */
+                    b->solution = solution;
+                    b->is_valid = 1;
+                    /* Creo el siguiente bloque */
+                    next = create_new_block(b);
+                    if (!next)
+                    {
+                        printf("error en la reserva de memoria del bloque");
+                        free(workers);
+                        free(workers_data);
+                        return -1;
+                    }
+                    /* Establezco el siguiente bloque */
+                    b->next = next;
+                    /* Y apunto al siguiente bloque*/
+                    b = b->next;
+
+                    sol_found = 0;
+                }
+            }
         }
     }
 
