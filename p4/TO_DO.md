@@ -9,7 +9,7 @@ TO DO
 6.  Manejar SIGUSR1 para saber si un minero esta activo o no
 7.  Volver a manejar SIUSR2 para iniciar el proceso de votacion
 8.  Crear sistema de votacion
-9.  Todos los mineros agregan el bloque en caso de que sea aceptado en votacion [:venezuela: :ru: :north_korea:]
+9.  Todos los mineros agregan el bloque en caso de que sea aceptado en votacion [COMUNISMO O LIBERTAD]
 10. Preparar nuevo bloque y otro ronda
 11. **Si hay monitor**  enviar por cola el nuevo bloque cada uno de los mineros si es correcto prioridad 2 si no 1
 12. Implementar funcion para imprimir cadena de bloques de un minero a un fichero identificado con nombre igual al PID
