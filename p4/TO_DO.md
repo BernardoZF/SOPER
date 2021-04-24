@@ -19,6 +19,7 @@ TO DO
 8.  Hijo imprime los bloques cada 5 secs    [bucle con sleep 5 supongo]
 9.  Finaliza al recibir SIGINT  [manejador de señales]
 10. REINICIAR???????? llamando de nuevo a ejecutarlo [¿?¿?¿?¿?¿ :upside_down_face: :exploding_head: ?¿?¿?¿?¿?]
+    
 **RED**
 1. Esto es abrir secciones de mem compartida y que se acceda a ella desde mineros 
 2. Mirar todo lo de mensajes y demas
