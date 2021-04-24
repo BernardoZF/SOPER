@@ -30,3 +30,5 @@ typedef struct _NetData {
 long int simple_hash(long int number);
 
 void print_blocks(Block * plast_block, int num_wallets);
+
+void print_blocks_to_file(Block *plast_block, int num_wallets, FILE  *pf);

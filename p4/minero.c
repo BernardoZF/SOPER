@@ -3,12 +3,20 @@
 #include <stdlib.h>
 #include <string.h>
 #include <unistd.h>
+#include <signal.h>
 #include "miner.h"
 
 #define PRIME 99997669
+#define MAX_LENGTH 256
 
 long int solution = 0;
 int sol_found = 0;
+static int end = 0;
+
+void manejador_SIGINT(int sig)
+{
+    end = 1;
+}
 
 typedef struct worker_data
 {
@@ -22,16 +30,19 @@ void *work_mine(void *arg)
     Wd *wd;
     wd = arg;
 
-    while (sol_found == 0)
+    if (!end)
     {
-        if (wd->target == simple_hash(wd->to_check))
+        while (sol_found == 0)
         {
-            solution = wd->to_check;
-            sol_found = 1;
-        }
-        else
-        {
-            wd->to_check = (wd->to_check + 1) % PRIME;
+            if (wd->target == simple_hash(wd->to_check))
+            {
+                solution = wd->to_check;
+                sol_found = 1;
+            }
+            else
+            {
+                wd->to_check = (wd->to_check + 1) % PRIME;
+            }
         }
     }
 
@@ -85,6 +96,18 @@ int main(int argc, char **argv)
     Wd *workers_data = NULL;
     Block *b;
     Block *next;
+    struct sigaction act;
+    FILE *pf = NULL;
+    char filename[MAX_LENGTH];
+    sprintf(filename, "%d", getpid());
+
+    /* Se arma la señal SIGALRM. */
+    act.sa_handler = manejador_SIGINT;
+    if (sigaction(SIGINT, &act, NULL) < 0)
+    {
+        perror("sigaction");
+        exit(EXIT_FAILURE);
+    }
 
     if (argc != 3)
     {
@@ -92,15 +115,24 @@ int main(int argc, char **argv)
         return -1;
     }
 
+    pf = fopen(filename, "w");
+    if (!pf)
+    {
+        printf("Error abriendo archivo log del minero");
+        return -1;
+    }
+
     n_workers = atoi(argv[1]);
     if (n_workers < 1)
     {
         printf("Numero de hilos menor que uno por favor introduzca un numero valido \n");
+        fclose(pf);
         return -1;
     }
     else if (n_workers > MAX_WORKERS)
     {
         printf("Numero de hilos mayor que el maximo favor introduzca un numero valido \n");
+        fclose(pf);
         return -1;
     }
 
@@ -110,12 +142,15 @@ int main(int argc, char **argv)
     if (!workers)
     {
         printf("ERROR al reservar memoria para los trabajadores");
+        fclose(pf);
+
         return -1;
     }
 
     workers_data = (Wd *)malloc(sizeof(Wd) * n_workers);
     if (!workers_data)
     {
+        fclose(pf);
         free(workers);
         return -1;
     }
@@ -126,6 +161,7 @@ int main(int argc, char **argv)
     if (!b)
     {
         printf("error en la reserva de memoria del bloque");
+        fclose(pf);
         free(workers);
         free(workers_data);
         return -1;
@@ -134,11 +170,11 @@ int main(int argc, char **argv)
     /* Rondas pasadas como argumento */
     if (n_cycles > 0)
     {
-        for (int a = 0; a < n_cycles; a++)
+        for (int a = 0; a < n_cycles && end == 0; a++)
         {
             for (int i = 0; i < n_workers; i++)
             {
-                workers_data[i].target = b->target; 
+                workers_data[i].target = b->target;
                 workers_data[i].to_check = section * i;
                 workers_data[i].cycles = n_cycles;
             }
@@ -162,6 +198,7 @@ int main(int argc, char **argv)
                 if (!next)
                 {
                     printf("error en la reserva de memoria del bloque");
+                    fclose(pf);
                     free(workers);
                     free(workers_data);
                     return -1;
@@ -178,52 +215,51 @@ int main(int argc, char **argv)
     else
     {
         /* Hasta que no recibes señal no acaba */
-        while (1)
+        while (end == 0)
         {
-            for (int a = 0; a < n_cycles; a++)
+
+            for (int i = 0; i < n_workers; i++)
             {
-                for (int i = 0; i < n_workers; i++)
-                {
-                    workers_data[i].target = b->target; // cambiarlo por el target buscado par cada caso
-                    workers_data[i].to_check = section * i;
-                    workers_data[i].cycles = n_cycles;
-                }
+                workers_data[i].target = b->target; // cambiarlo por el target buscado par cada caso
+                workers_data[i].to_check = section * i;
+                workers_data[i].cycles = n_cycles;
+            }
 
-                for (int i = 0; i < n_workers; i++)
-                {
-                    pthread_create(&workers[i], NULL, work_mine, &workers_data[i]);
-                }
-                for (int i = 0; i < n_workers; i++)
-                {
-                    pthread_join(workers[i], NULL);
-                }
+            for (int i = 0; i < n_workers; i++)
+            {
+                pthread_create(&workers[i], NULL, work_mine, &workers_data[i]);
+            }
+            for (int i = 0; i < n_workers; i++)
+            {
+                pthread_join(workers[i], NULL);
+            }
 
-                if (sol_found)
+            if (sol_found)
+            {
+                /* actualizo la solucion */
+                b->solution = solution;
+                b->is_valid = 1;
+                /* Creo el siguiente bloque */
+                next = create_new_block(b);
+                if (!next)
                 {
-                    /* actualizo la solucion */
-                    b->solution = solution;
-                    b->is_valid = 1;
-                    /* Creo el siguiente bloque */
-                    next = create_new_block(b);
-                    if (!next)
-                    {
-                        printf("error en la reserva de memoria del bloque");
-                        free(workers);
-                        free(workers_data);
-                        return -1;
-                    }
-                    /* Establezco el siguiente bloque */
-                    b->next = next;
-                    /* Y apunto al siguiente bloque*/
-                    b = b->next;
-
-                    sol_found = 0;
+                    printf("error en la reserva de memoria del bloque");
+                    fclose(pf);
+                    free(workers);
+                    free(workers_data);
+                    return -1;
                 }
+                /* Establezco el siguiente bloque */
+                b->next = next;
+                /* Y apunto al siguiente bloque*/
+                b = b->next;
+
+                sol_found = 0;
             }
         }
     }
 
-    print_blocks(b, 1);
+    print_blocks_to_file(b, 1, pf);
 
     exit(EXIT_SUCCESS);
 }

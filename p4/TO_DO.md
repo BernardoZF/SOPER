@@ -10,20 +10,20 @@ TO DO
 7.  Volver a manejar SIUSR2 para iniciar el proceso de votacion
 8.  Crear sistema de votacion
 9.  Todos los mineros agregan el bloque en caso de que sea aceptado en votacion [COMUNISMO O LIBERTAD]
-10. Preparar nuevo bloque y otro ronda
+10. Preparar nuevo bloque y otro ronda ✔️ podria decirse que funciona a falta de añadir cosas
 11. **Si hay monitor**  enviar por cola el nuevo bloque cada uno de los mineros si es correcto prioridad 2 si no 1
-12. Implementar funcion para imprimir cadena de bloques de un minero a un fichero identificado con nombre igual al PID
-13. Manejar SIGINT para acabar
+12. Implementar funcion para imprimir cadena de bloques de un minero a un fichero identificado con nombre igual al PID ✔️ Funciona de momento
+13. Manejar SIGINT para acabar ✔️ a falta de cambios esto funciona 
 
 **MONITOR**
-1.  Crear proceso hijo  [fork]
+1.  Crear proceso hijo  [fork] ✔️
 2.  Recibe nuevos bloques   [Cola de mensajes]
-3.  El padre almacena los 10 ultimos bloques [array circular]
+3.  El padre almacena los 10 ultimos bloques [array circular] ✔ a medias falta lo de los bloques pero esta bastante avanzado
 4.  Padre al recibir mensaje sobre un bloque y comprueba solucion  [¿Como recibir estructura por Q?]
-5.  Padre si el id no esta guardado borra el mas antiguo    [array circular]
-6.  Padre envia COPIA por TUBERIA de cada nuevo bloque al hijo [Toston de hacer por tuberia :upside_down_face:]
+5.  Padre si el id no esta guardado borra el mas antiguo    [array circular] ✔️ igual que en el 3
+6.  Padre envia COPIA por TUBERIA de cada nuevo bloque al hijo [Toston de hacer por tuberia :upside_down_face:] 
 7.  Hijo almacena TODOS los bloques         [La propia estructura bloque supongo]
-8.  Hijo imprime los bloques cada 5 secs    [bucle con sleep 5 supongo]
+8.  Hijo imprime los bloques cada 5 secs    [bucle con sleep 5 supongo] ✔️ hecho con alarm porque si no creo que generaria problemas
 9.  Finaliza al recibir SIGINT  [manejador de señales]
 10. REINICIAR???????? llamando de nuevo a ejecutarlo [¿?¿?¿?¿?¿ :upside_down_face::exploding_head: ?¿?¿?¿?¿?]
     

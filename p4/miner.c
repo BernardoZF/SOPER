@@ -25,6 +25,23 @@ void print_blocks(Block *plast_block, int num_wallets) {
     printf("A total of %d blocks were printed\n", i);
 }
 
+void print_blocks_to_file(Block *plast_block, int num_wallets, FILE  *pf) {
+    Block *block = NULL;
+    int i, j;
+
+    for(i = 0, block = plast_block; block != NULL; block = block->prev, i++) {
+        fprintf(pf, "Block number: %d; Target: %ld;    Solution: %ld\n", block->id, block->target, block->solution);
+        fflush(pf);
+        for(j = 0; j < num_wallets; j++) {
+            fprintf(pf, "%d: %d;         ", j, block->wallets[j]);
+            fflush(pf);
+        }
+        fprintf(pf,"\n\n\n");
+        fflush(pf);
+    }
+    fprintf(pf, "A total of %d blocks were printed\n", i);
+    fflush(pf);
+}
 /*int main(int argc, char *argv[]) {
     long int i, target;
 
