@@ -5,6 +5,7 @@
 #include <unistd.h>
 #include <signal.h>
 #include "miner.h"
+#include <mqueue.h>
 
 #define PRIME 99997669
 #define MAX_LENGTH 256
@@ -81,10 +82,42 @@ Block *create_new_block(Block *prev)
     b->solution = -1;
     b->id = prev->id + 1;
     b->is_valid = 0;
-    b->prev = prev;
+    b->prev = NULL;
     b->next = NULL;
 
     return b;
+}
+
+int sol_found_dependancies(Block ** b, FILE *pf, pthread_t *workers, Wd *workers_data, mqd_t * mq)
+{
+    Block * next;
+    unsigned int prio = 2;
+    /* actualizo la solucion */
+    (*b)->solution = solution;
+    (*b)->is_valid = 1;
+    /* Creo el siguiente bloque */
+    next = create_new_block(*b);
+    if (!next)
+    {
+        printf("error en la reserva de memoria del bloque");
+        fclose(pf);
+        free(workers);
+        free(workers_data);
+        return -1;
+    }
+    /* Establezco el siguiente bloque */
+    print_blocks_to_file(*b, 1, pf);
+    if(mq_send(*mq, (char *)*b, sizeof(Block), prio) == -1 ) {
+        printf("Error en el enviado del bloque \n");
+        return -1;
+    }
+
+    /*b->next = next;*/
+    /* Y apunto al siguiente bloque*/
+    *b = next;
+
+    sol_found = 0;
+    return 0;
 }
 
 int main(int argc, char **argv)
@@ -95,11 +128,25 @@ int main(int argc, char **argv)
     pthread_t *workers = NULL;
     Wd *workers_data = NULL;
     Block *b;
-    Block *next;
     struct sigaction act;
     FILE *pf = NULL;
+    struct mq_attr attributes = {
+        .mq_flags = 0,
+        .mq_maxmsg = 10,
+        .mq_curmsgs = 0,
+        .mq_msgsize = sizeof(Block)};
     char filename[MAX_LENGTH];
     sprintf(filename, "%d", getpid());
+
+    mqd_t mq;
+
+    if ((mq = mq_open(Q_NAME, O_CREAT | O_WRONLY, S_IRUSR | S_IWUSR, &attributes)) == (mqd_t)-1)
+    {
+        perror("mq_open");
+        exit(EXIT_FAILURE);
+    }
+    mq_unlink(Q_NAME);
+    /* FALTA MQ_CLOSE EN CADA CONTROL DE ERRORES */
 
     /* Se arma la señal SIGALRM. */
     act.sa_handler = manejador_SIGINT;
@@ -190,32 +237,15 @@ int main(int argc, char **argv)
 
             if (sol_found)
             {
-                /* actualizo la solucion */
-                b->solution = solution;
-                b->is_valid = 1;
-                /* Creo el siguiente bloque */
-                next = create_new_block(b);
-                if (!next)
-                {
-                    printf("error en la reserva de memoria del bloque");
-                    fclose(pf);
-                    free(workers);
-                    free(workers_data);
+                if (sol_found_dependancies(&b, pf, workers, workers_data, &mq) == -1)
                     return -1;
-                }
-                /* Establezco el siguiente bloque */
-                b->next = next;
-                /* Y apunto al siguiente bloque*/
-                b = b->next;
-
-                sol_found = 0;
             }
         }
     }
     else
     {
         /* Hasta que no recibes señal no acaba */
-        while (end == 0)
+        while (!end)
         {
 
             for (int i = 0; i < n_workers; i++)
@@ -236,30 +266,12 @@ int main(int argc, char **argv)
 
             if (sol_found)
             {
-                /* actualizo la solucion */
-                b->solution = solution;
-                b->is_valid = 1;
-                /* Creo el siguiente bloque */
-                next = create_new_block(b);
-                if (!next)
-                {
-                    printf("error en la reserva de memoria del bloque");
-                    fclose(pf);
-                    free(workers);
-                    free(workers_data);
-                    return -1;
+                if (sol_found_dependancies(&b, pf, workers, workers_data, &mq) == -1){
+                    break;
                 }
-                /* Establezco el siguiente bloque */
-                b->next = next;
-                /* Y apunto al siguiente bloque*/
-                b = b->next;
-
-                sol_found = 0;
             }
         }
     }
-
-    print_blocks_to_file(b, 1, pf);
 
     exit(EXIT_SUCCESS);
 }

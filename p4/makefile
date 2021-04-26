@@ -1,6 +1,6 @@
 CC = -gcc 
 CFLAGS = -Wall
-EXE = minero
+EXE = minero monitor
 CODE = miner 
 all : $(EXE) 
 
@@ -9,7 +9,7 @@ clean :
 	rm $(EXE) $(CODE) *.o
 
 $(EXE) : % : %.o  miner.o
-	$(CC) $(CFLAGS) -o $@ $@.o miner.o -pthread
+	$(CC) $(CFLAGS) -o $@ $@.o miner.o -pthread -lrt
 
 $(CODE) : % : %.o 
 	$(CC) $(CFLAGS) -o $@ $@.o
@@ -18,4 +18,7 @@ miner.o : miner.c
 	$(CC) -c -o $@ $< $(CFLAGS)
 
 minero.o : minero.c
+	$(CC) -c -o $@ $< $(CFLAGS) 
+
+monitor.o : monitor.c
 	$(CC) -c -o $@ $< $(CFLAGS) 

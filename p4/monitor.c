@@ -7,6 +7,7 @@
 #include <sys/wait.h>
 #include <signal.h>
 #include "miner.h"
+#include <mqueue.h>
 
 static int got_alarm = 0;
 static int end = 0;
@@ -27,13 +28,19 @@ int main(int argc, char **argv)
     int fd[2];
     int pipe_status;
     pid_t father;
+    struct mq_attr attributes = {
+        .mq_flags = 0,
+        .mq_maxmsg = 10,
+        .mq_curmsgs = 0,
+        .mq_msgsize = sizeof(Block)};
 
     sigemptyset(&(act.sa_mask));
     act.sa_flags = 0;
 
     /* Se arma la señal SIGALRM. */
-     act.sa_handler = manejador_SIGINT;
-    if (sigaction(SIGINT, &act, NULL) < 0) {
+    act.sa_handler = manejador_SIGINT;
+    if (sigaction(SIGINT, &act, NULL) < 0)
+    {
         perror("sigaction");
         exit(EXIT_FAILURE);
     }
@@ -55,37 +62,54 @@ int main(int argc, char **argv)
     }
     if (father)
     {
+        mqd_t mq;
+
+        if ((mq = mq_open(Q_NAME, O_CREAT | O_RDONLY, S_IRUSR | S_IWUSR, &attributes)) == (mqd_t)-1)
+        {
+            perror("mq_open");
+            exit(EXIT_FAILURE);
+        }
+        mq_unlink(Q_NAME);
+
         close(fd[0]);
         /* Codigo padre */
         Block blocks[10];
         int head = 0;
         int rear = 0;
-        int flag;
+        int flag = 0;
+        unsigned int prio = 2;
 
         /* SE RECIBA UN NUEVO BLOQUE */
-        Block *b;
-        /* COMPROBAMOS SI NO ESTA */
-        for (int i = 0, flag = 0; i < 10; i++)
+        Block *b = NULL;
+        while (1)
         {
-            if (b->id == blocks[i].id)
+            mq_receive(mq, (char *) b, sizeof(Block), &prio);
+            /* COMPROBAMOS SI NO ESTA */
+            print_blocks(b, 1);
+            for (int i = 0, flag = 0; i < 10; i++)
             {
-                flag = 1;
+                if (b->id == blocks[i].id)
+                {
+                    flag = 1;
+                }
             }
-        }
-        /* SI NO ESTA SE ANYADE (POR IMPLEMENTAR) */
-        /* Y ACTUALIZAMOS LOS MARCADORES */
-        if (!flag)
-        {
-            head = (head + 1) % 10;
-            if (head == rear)
+            /* SI NO ESTA SE ANYADE (POR IMPLEMENTAR) */
+            /* Y ACTUALIZAMOS LOS MARCADORES */
+            if (!flag)
             {
-                rear = (rear + 1) % 10;
+                head = (head + 1) % 10;
+                if (head == rear)
+                {
+                    rear = (rear + 1) % 10;
+                }
             }
-        }
-        if(end){
-            /* LIBERAR TODA LA MEMORIA */
-            wait(NULL);
-            exit(EXIT_SUCCESS);
+            
+            if (end)
+            {
+                /* LIBERAR TODA LA MEMORIA */
+                wait(NULL);
+                exit(EXIT_SUCCESS);
+            }
         }
     }
     else
@@ -101,21 +125,26 @@ int main(int argc, char **argv)
 
         while (1)
         {
-            if (alarm(5))
+            if(alarm(5))
             {
+
+            }
+            if (end)
+            {
+                /* Liberar memoria */
+                exit(EXIT_SUCCESS);
             }
             if (got_alarm)
             {
                 /* Falta obtener el numero de wallets que hay que no se cmo implementarlo */
                 /* Ademas de todo lo de recepcion de bloques por tuberia */
-                print_blocks(NULL, 10);
+                /*print_blocks(NULL, 10);*/
+                printf("IMPRIMIENDO BLOQUE\n");
 
                 got_alarm = 0;
             }
-            if(end){
-                /* Liberar memoria */
-                exit(EXIT_SUCCESS);
-            }
+            
+            sleep(9999);    
         }
     }
 }

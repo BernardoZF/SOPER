@@ -5,6 +5,7 @@
 
 #define SHM_NAME_NET "/netdata"
 #define SHM_NAME_BLOCK "/block"
+#define Q_NAME "/q"
 
 #define MAX_MINERS 200
 
@@ -13,7 +14,7 @@ typedef struct _Block {
     long int target;
     long int solution;
     int id;
-    int is_valid;
+    int is_valid; // si es valido le ponemos  = 2 si no  = 1
     struct _Block *next;
     struct _Block *prev;
 } Block;

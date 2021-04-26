@@ -39,8 +39,8 @@ void print_blocks_to_file(Block *plast_block, int num_wallets, FILE  *pf) {
         fprintf(pf,"\n\n\n");
         fflush(pf);
     }
-    fprintf(pf, "A total of %d blocks were printed\n", i);
-    fflush(pf);
+    /*fprintf(pf, "A total of %d blocks were printed\n", i);
+    fflush(pf);*/
 }
 /*int main(int argc, char *argv[]) {
     long int i, target;
