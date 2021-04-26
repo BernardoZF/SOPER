@@ -5,7 +5,7 @@
 
 #define SHM_NAME_NET "/netdata"
 #define SHM_NAME_BLOCK "/block"
-#define Q_NAME "/q"
+#define Q_NAME "/mqueue"
 
 #define MAX_MINERS 200
 

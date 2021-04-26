@@ -7,6 +7,7 @@
 #include <sys/wait.h>
 #include <signal.h>
 #include "miner.h"
+#include <fcntl.h>
 #include <mqueue.h>
 
 static int got_alarm = 0;
@@ -67,6 +68,7 @@ int main(int argc, char **argv)
         if ((mq = mq_open(Q_NAME, O_CREAT | O_RDONLY, S_IRUSR | S_IWUSR, &attributes)) == (mqd_t)-1)
         {
             perror("mq_open");
+            wait(NULL);
             exit(EXIT_FAILURE);
         }
         mq_unlink(Q_NAME);
@@ -77,18 +79,23 @@ int main(int argc, char **argv)
         int head = 0;
         int rear = 0;
         int flag = 0;
-        unsigned int prio = 2;
+        //unsigned int prio = 2;
 
         /* SE RECIBA UN NUEVO BLOQUE */
-        Block *b = NULL;
+        Block b;
         while (1)
         {
-            mq_receive(mq, (char *) b, sizeof(Block), &prio);
+            ssize_t n_bytes = 0;
+            if (mq_receive(mq, (char *)&b, sizeof(b), NULL) == -1 && !end)
+            {
+                printf("Error recibiendo el mensaje");
+                return -1;
+            }
             /* COMPROBAMOS SI NO ESTA */
-            print_blocks(b, 1);
+            //print_blocks(&b, 1);
             for (int i = 0, flag = 0; i < 10; i++)
             {
-                if (b->id == blocks[i].id)
+                if (b.id == blocks[i].id)
                 {
                     flag = 1;
                 }
@@ -102,18 +109,30 @@ int main(int argc, char **argv)
                 {
                     rear = (rear + 1) % 10;
                 }
+                blocks[head] = b;
             }
-            
             if (end)
             {
                 /* LIBERAR TODA LA MEMORIA */
+                mq_close(mq);
                 wait(NULL);
                 exit(EXIT_SUCCESS);
+            }
+            n_bytes = write(fd[1], (void *)&blocks[head], sizeof(blocks[head]));
+            if (n_bytes < 0)
+            {
+                perror("write");
+                wait(NULL);
+                exit(EXIT_FAILURE);
             }
         }
     }
     else
     {
+        int turn = 0;
+        Block *b = NULL;
+        Block *next;
+        ssize_t n_bytes = 0;
         close(fd[1]);
 
         act.sa_handler = manejador_SIGALRM;
@@ -122,13 +141,43 @@ int main(int argc, char **argv)
             perror("sigaction");
             exit(EXIT_FAILURE);
         }
+        b = (Block *)malloc(sizeof(Block));
 
-        while (1)
+        do
         {
-            if(alarm(5))
+            if (alarm(5))
             {
-
             }
+            if (turn)
+            {
+                next = (Block *)malloc(sizeof(Block));
+
+                n_bytes = read(fd[0], (void *)next, sizeof(*next));
+                if (n_bytes == -1 && !end)
+                {
+                    perror("read");
+                    exit(EXIT_FAILURE);
+                }
+            }
+            else
+            {
+                n_bytes = read(fd[0], (void *)b, sizeof(*b));
+                if (n_bytes == -1 && !end)
+                {
+                    perror("read");
+                    exit(EXIT_FAILURE);
+                }
+            }
+
+            if (turn)
+            {
+                b->next = next;
+            }
+            if (turn)
+            {
+                b = next;
+            }
+
             if (end)
             {
                 /* Liberar memoria */
@@ -136,15 +185,14 @@ int main(int argc, char **argv)
             }
             if (got_alarm)
             {
-                /* Falta obtener el numero de wallets que hay que no se cmo implementarlo */
+                /* Falta obtener el numero de wallets que hay que no se como implementarlo */
                 /* Ademas de todo lo de recepcion de bloques por tuberia */
-                /*print_blocks(NULL, 10);*/
-                printf("IMPRIMIENDO BLOQUE\n");
+                print_blocks(b, 1);
 
                 got_alarm = 0;
             }
-            
-            sleep(9999);    
-        }
+            turn++;
+            sleep(5);
+        } while (n_bytes != 0);
     }
 }

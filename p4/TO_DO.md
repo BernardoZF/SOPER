@@ -17,14 +17,14 @@ TO DO
 
 **MONITOR**
 1.  Crear proceso hijo  [fork] ✔️
-2.  Recibe nuevos bloques   [Cola de mensajes]
+2.  Recibe nuevos bloques   [Cola de mensajes] ✔️ COMPROBADO QUE FUNCIONA
 3.  El padre almacena los 10 ultimos bloques [array circular] ✔ a medias falta lo de los bloques pero esta bastante avanzado
-4.  Padre al recibir mensaje sobre un bloque y comprueba solucion  [¿Como recibir estructura por Q?]
+4.  Padre al recibir mensaje sobre un bloque y comprueba solucion  [¿Como recibir estructura por Q?] ✔️ SE RECIBEN BIEN POR COLA DE MENSAJES
 5.  Padre si el id no esta guardado borra el mas antiguo    [array circular] ✔️ igual que en el 3
-6.  Padre envia COPIA por TUBERIA de cada nuevo bloque al hijo [Toston de hacer por tuberia :upside_down_face:] 
+6.  Padre envia COPIA por TUBERIA de cada nuevo bloque al hijo [Toston de hacer por tuberia :upside_down_face:] NO SE ME ESTAN COPIANDO BIEN 
 7.  Hijo almacena TODOS los bloques         [La propia estructura bloque supongo]
 8.  Hijo imprime los bloques cada 5 secs    [bucle con sleep 5 supongo] ✔️ hecho con alarm porque si no creo que generaria problemas
-9.  Finaliza al recibir SIGINT  [manejador de señales]
+9.  Finaliza al recibir SIGINT  [manejador de señales] ✔️ 
 10. REINICIAR???????? llamando de nuevo a ejecutarlo [¿?¿?¿?¿?¿ :upside_down_face::exploding_head: ?¿?¿?¿?¿?]
     
 **RED**

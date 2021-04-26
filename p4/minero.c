@@ -5,6 +5,7 @@
 #include <unistd.h>
 #include <signal.h>
 #include "miner.h"
+#include <fcntl.h>
 #include <mqueue.h>
 
 #define PRIME 99997669
@@ -60,7 +61,7 @@ Block *create_new_block(Block *prev)
         {
             return NULL;
         }
-        b->wallets[0] = 0;
+        b->wallets[0] = 1;
         b->target = 1;
         b->solution = -1;
         b->id = 1;
@@ -107,7 +108,7 @@ int sol_found_dependancies(Block ** b, FILE *pf, pthread_t *workers, Wd *workers
     }
     /* Establezco el siguiente bloque */
     print_blocks_to_file(*b, 1, pf);
-    if(mq_send(*mq, (char *)*b, sizeof(Block), prio) == -1 ) {
+    if(mq_send(*mq, (char *)*b, sizeof(**b), 1) == -1 && !end) {
         printf("Error en el enviado del bloque \n");
         return -1;
     }
@@ -145,7 +146,6 @@ int main(int argc, char **argv)
         perror("mq_open");
         exit(EXIT_FAILURE);
     }
-    mq_unlink(Q_NAME);
     /* FALTA MQ_CLOSE EN CADA CONTROL DE ERRORES */
 
     /* Se arma la señal SIGALRM. */
