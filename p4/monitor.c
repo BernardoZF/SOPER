@@ -9,6 +9,8 @@
 #include "miner.h"
 #include <fcntl.h>
 #include <mqueue.h>
+#include <sys/mman.h>
+#include <errno.h>
 
 static int got_alarm = 0;
 static int end = 0;
@@ -25,10 +27,12 @@ void manejador_SIGINT(int sig)
 
 int main(int argc, char **argv)
 {
+    int fd_shm_net;
     struct sigaction act;
     int fd[2];
     int pipe_status;
     pid_t father;
+    NetData * nd;
     struct mq_attr attributes = {
         .mq_flags = 0,
         .mq_maxmsg = 10,
@@ -72,6 +76,54 @@ int main(int argc, char **argv)
             exit(EXIT_FAILURE);
         }
         mq_unlink(Q_NAME);
+
+        fd_shm_net = shm_open(SHM_NAME_NET, O_RDWR | O_CREAT | O_EXCL, S_IRUSR | S_IWUSR);
+        /* Si hay error */
+        if (fd_shm_net == -1)
+        { /*Compruebo si el error es porque existe */
+            if (errno == EEXIST)
+            { /* Si es porque existe entonces no lo creo y solo lo abro */
+                fd_shm_net = shm_open(SHM_NAME_NET, O_RDWR, 0);
+                if (fd_shm_net == -1)
+                {
+                    perror("Error opening the shared memory segment");
+                    exit(EXIT_FAILURE);
+                }
+            }
+            /* Errores creando el archivo */
+            else
+            {
+                mq_close(mq);
+                perror("shm_open");
+                exit(EXIT_FAILURE);
+                exit(EXIT_FAILURE);
+            }
+        }
+        /* Este archivo crea el archivo compartido por lo tanto tiene que truncar el archivo */
+        else
+        {
+            if (ftruncate(fd_shm_net, sizeof(NetData)) == -1)
+            {
+                mq_close(mq);
+                perror("ftruncate");
+                shm_unlink(SHM_NAME_NET);
+                exit(EXIT_FAILURE);
+            }
+        }
+        /* Resize of the memory segment. */
+
+        /* Mapping of the memory segment. */
+        nd = (NetData *)mmap(NULL, sizeof(NetData), PROT_READ | PROT_WRITE, MAP_SHARED, fd_shm_net, 0);
+        close(fd_shm_net);
+        if (nd == MAP_FAILED)
+        {
+            mq_close(mq);
+            perror("mmap");
+            shm_unlink(SHM_NAME_NET);
+            exit(EXIT_FAILURE);
+        }
+
+        nd->monitor_pid = getpid();
 
         close(fd[0]);
         /* Codigo padre */
@@ -126,11 +178,11 @@ int main(int argc, char **argv)
             {
                 if (b.solution == blocks[pos].solution && b.target == blocks[pos].target)
                 {
-                    printf("Verified block %d with solution %ld for target %ld", b.id, b.solution, b.target);
+                    printf("Verified block %d with solution %ld for target %ld\n", b.id, b.solution, b.target);
                 }
                 else
                 {
-                    printf("Error in block %d with solution %ld for target %ld", b.id, b.solution, b.target);
+                    printf("Error in block %d with solution %ld for target %ld\n", b.id, b.solution, b.target);
                 }
             }
             if (end)
@@ -167,7 +219,7 @@ int main(int argc, char **argv)
             next = (Block *)malloc(sizeof(Block));
 
             n_bytes = read(fd[0], (void *)next, sizeof(*next));
-            if (n_bytes == -1 && !end && !alarm)
+            if (n_bytes == -1 && !end && !got_alarm)
             {
                 perror("read");
                 exit(EXIT_FAILURE);

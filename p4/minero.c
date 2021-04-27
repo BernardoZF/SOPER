@@ -9,6 +9,7 @@
 #include <mqueue.h>
 #include <sys/mman.h>
 #include <semaphore.h>
+#include <errno.h>
 
 #define PRIME 99997669
 #define MAX_LENGTH 256
@@ -75,10 +76,13 @@ void shared_block_f5(Block *sb, int wallet);
 
 int main(int argc, char **argv)
 {
+    int wallet;
     int fd_shm_net;
     int fd_shm_block;
     int n_workers;
     int n_cycles;
+    int first_block = 0;
+    int first_net = 0;
     pthread_t *workers = NULL;
     Wd *workers_data = NULL;
     Block *b;
@@ -96,7 +100,6 @@ int main(int argc, char **argv)
     sprintf(filename, "%d", getpid());
 
     mqd_t mq;
-
 
     /* Se arma la señal SIGINT. */
     act.sa_handler = manejador_SIGINT;
@@ -184,31 +187,50 @@ int main(int argc, char **argv)
         return -1;
     }
 
-    if ((fd_shm_net = shm_open(SHM_NAME_NET, O_RDWR | O_CREAT | O_EXCL, S_IRUSR | S_IWUSR)) == -1)
-    {
-        mq_close(mq);
-        free(b);
-        fclose(pf);
-        free(workers);
-        free(workers_data);
-        perror("shm_open");
-        exit(EXIT_FAILURE);
+    fd_shm_net = shm_open(SHM_NAME_NET, O_RDWR | O_CREAT | O_EXCL, S_IRUSR | S_IWUSR);
+    /* Si hay error */
+    if (fd_shm_net == -1)
+    { /*Compruebo si el error es porque existe */
+        if (errno == EEXIST)
+        { /* Si es porque existe entonces no lo creo y solo lo abro */
+            fd_shm_net = shm_open(SHM_NAME_NET, O_RDWR, 0);
+            if (fd_shm_net == -1)
+            {
+                perror("Error opening the shared memory segment");
+                exit(EXIT_FAILURE);
+            }
+        }
+        /* Errores creando el archivo */
+        else
+        {
+            mq_close(mq);
+            free(b);
+            fclose(pf);
+            free(workers);
+            free(workers_data);
+            perror("shm_open");
+            exit(EXIT_FAILURE);
+            exit(EXIT_FAILURE);
+        }
     }
-    printf("Archivo creado con exito\n");
+    /* Este archivo crea el archivo compartido por lo tanto tiene que truncar el archivo */
+    else
+    {
+        first_net = 1;
+        if (ftruncate(fd_shm_net, sizeof(NetData)) == -1)
+        {
+            mq_close(mq);
 
+            free(b);
+            fclose(pf);
+            free(workers);
+            free(workers_data);
+            perror("ftruncate");
+            shm_unlink(SHM_NAME_NET);
+            exit(EXIT_FAILURE);
+        }
+    }
     /* Resize of the memory segment. */
-    if (ftruncate(fd_shm_net, sizeof(NetData)) == -1)
-    {
-        mq_close(mq);
-
-        free(b);
-        fclose(pf);
-        free(workers);
-        free(workers_data);
-        perror("ftruncate");
-        shm_unlink(SHM_NAME_NET);
-        exit(EXIT_FAILURE);
-    }
 
     /* Mapping of the memory segment. */
     nd = (NetData *)mmap(NULL, sizeof(NetData), PROT_READ | PROT_WRITE, MAP_SHARED, fd_shm_net, 0);
@@ -226,33 +248,75 @@ int main(int argc, char **argv)
         exit(EXIT_FAILURE);
     }
 
-    if ((fd_shm_block = shm_open(SHM_NAME_BLOCK, O_RDWR | O_CREAT | O_EXCL, S_IRUSR | S_IWUSR)) == -1)
+    if (first_net)
     {
-        mq_close(mq);
-        free(b);
-        fclose(pf);
-        free(workers);
-        free(workers_data);
-        shm_unlink(SHM_NAME_NET);
-        munmap(nd, sizeof(*nd));
-        perror("shm_open");
-        exit(EXIT_FAILURE);
-    }
-    printf("Archivo creado con exito\n");
+        nd->total_miners = 1;
+        nd->last_miner = 0;
+        nd->last_winner = getpid();
+        if (sem_init(&nd->mutex, 1, 1) == -1)
+        {
+            mq_close(mq);
 
-    /* Resize of the memory segment. */
-    if (ftruncate(fd_shm_block, sizeof(Block)) == -1)
+            free(b);
+            fclose(pf);
+            free(workers);
+            free(workers_data);
+            shm_unlink(SHM_NAME_NET);
+            munmap(nd, sizeof(*nd));
+            exit(EXIT_FAILURE);
+        }
+        nd->miners_pid[nd->last_miner] = getpid();
+        wallet = nd->last_miner;
+    }
+    else
     {
-        mq_close(mq);
-        free(b);
-        fclose(pf);
-        free(workers);
-        free(workers_data);
-        shm_unlink(SHM_NAME_NET);
-        munmap(nd, sizeof(*nd));
-        perror("ftruncate");
-        shm_unlink(SHM_NAME_BLOCK);
-        exit(EXIT_FAILURE);
+        nd->total_miners++;
+        nd->last_miner++;
+        nd->miners_pid[nd->last_miner] = getpid();
+        wallet = nd->last_miner;
+    }
+
+    fd_shm_block = shm_open(SHM_NAME_BLOCK, O_RDWR | O_CREAT | O_EXCL, S_IRUSR | S_IWUSR);
+    if (fd_shm_block == -1)
+    {
+        if (errno == EEXIST)
+        {
+            fd_shm_block = shm_open(SHM_NAME_BLOCK, O_RDWR, 0);
+            if (fd_shm_block == -1)
+            {
+                perror("Error opening the shared memory segment");
+                exit(EXIT_FAILURE);
+            }
+        }
+        else
+        {
+            mq_close(mq);
+            free(b);
+            fclose(pf);
+            free(workers);
+            free(workers_data);
+            shm_unlink(SHM_NAME_NET);
+            munmap(nd, sizeof(*nd));
+            perror("shm_open");
+            exit(EXIT_FAILURE);
+        }
+    }
+    else
+    {
+        /* Resize of the memory segment. */
+        if (ftruncate(fd_shm_block, sizeof(Block)) == -1)
+        {
+            mq_close(mq);
+            free(b);
+            fclose(pf);
+            free(workers);
+            free(workers_data);
+            shm_unlink(SHM_NAME_NET);
+            munmap(nd, sizeof(*nd));
+            perror("ftruncate");
+            shm_unlink(SHM_NAME_BLOCK);
+            exit(EXIT_FAILURE);
+        }
     }
 
     /* Mapping of the memory segment. */
@@ -316,7 +380,7 @@ int main(int argc, char **argv)
                 else
                 {
                     /* De momento el wallet va a ser 0 pero tendremos que obtener que wallet es este proceso */
-                    shared_block_f5(block_shared, 0);
+                    shared_block_f5(block_shared, wallet);
                 }
             }
             else if (stop)
@@ -363,8 +427,10 @@ int main(int argc, char **argv)
                 }
                 else
                 {
+                    sem_wait(&nd->mutex);
                     /* De momento el wallet va a ser 0 pero tendremos que obtener que wallet es este proceso */
-                    shared_block_f5(block_shared, 0);
+                    shared_block_f5(block_shared, wallet);
+                    sem_post(&nd->mutex);
                 }
             }
             else if (stop)
