@@ -28,11 +28,11 @@
 10. REINICIAR???????? llamando de nuevo a ejecutarlo [¿?¿?¿?¿?¿ :upside_down_face::exploding_head: ?¿?¿?¿?¿?]
     
 **RED**
-1. Esto es abrir secciones de mem compartida y que se acceda a ella desde mineros 
-2. Un minero se ha unido a la red cuando abre la memoria compartida
-3. **Se pueden meter semaforos en la estructura compartida**
-4. Los mineros pueden acabar y salir en cualquiere momento [dejar su posicion de memoria compartida libre y cerrar dicha memoria]
-5. El miero ganador cambia los datos de memoria compartida [semaforo mutex]
+1. Esto es abrir secciones de mem compartida y que se acceda a ella desde mineros ✔️
+2. Un minero se ha unido a la red cuando abre la memoria compartida ✔️
+3. **Se pueden meter semaforos en la estructura compartida** [falta todo lo de gestion de concurrencia]
+4. Los mineros pueden acabar y salir en cualquier momento [dejar su posicion de memoria compartida libre y cerrar dicha memoria]
+5. El miero ganador cambia los datos de memoria compartida [semaforo mutex] 
 6. Ser robusto frente a bloqueos (ejemplo dado si se queda esperando de mas antes de iniciar otra ronda recibir alarma y acabar) [un poco paranoia tbh] 
 
 **MIRAR EL RESTO CUANDO SEA NECESARIO**

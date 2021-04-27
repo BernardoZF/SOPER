@@ -79,6 +79,7 @@ int main(int argc, char **argv)
         int head = 0;
         int rear = 0;
         int flag = 0;
+        int pos = 0;
         //unsigned int prio = 2;
 
         /* SE RECIBA UN NUEVO BLOQUE */
@@ -99,6 +100,7 @@ int main(int argc, char **argv)
                 if (b.id == blocks[i].id)
                 {
                     flag = 1;
+                    pos = i;
                 }
             }
             /* SI NO ESTA SE ANYADE (POR IMPLEMENTAR) */
@@ -111,6 +113,25 @@ int main(int argc, char **argv)
                     rear = (rear + 1) % 10;
                 }
                 blocks[head] = b;
+
+                n_bytes = write(fd[1], (void *)&blocks[head], sizeof(blocks[head]));
+                if (n_bytes < 0)
+                {
+                    perror("write");
+                    wait(NULL);
+                    exit(EXIT_FAILURE);
+                }
+            }
+            else
+            {
+                if (b.solution == blocks[pos].solution && b.target == blocks[pos].target)
+                {
+                    printf("Verified block %d with solution %ld for target %ld", b.id, b.solution, b.target);
+                }
+                else
+                {
+                    printf("Error in block %d with solution %ld for target %ld", b.id, b.solution, b.target);
+                }
             }
             if (end)
             {
@@ -119,13 +140,6 @@ int main(int argc, char **argv)
                 mq_close(mq);
                 wait(NULL);
                 exit(EXIT_SUCCESS);
-            }
-            n_bytes = write(fd[1], (void *)&blocks[head], sizeof(blocks[head]));
-            if (n_bytes < 0)
-            {
-                perror("write");
-                wait(NULL);
-                exit(EXIT_FAILURE);
             }
         }
     }
@@ -153,7 +167,7 @@ int main(int argc, char **argv)
             next = (Block *)malloc(sizeof(Block));
 
             n_bytes = read(fd[0], (void *)next, sizeof(*next));
-            if (n_bytes == -1 && !end)
+            if (n_bytes == -1 && !end && !alarm)
             {
                 perror("read");
                 exit(EXIT_FAILURE);

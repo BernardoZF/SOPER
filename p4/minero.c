@@ -97,6 +97,7 @@ int main(int argc, char **argv)
 
     mqd_t mq;
 
+
     /* Se arma la señal SIGINT. */
     act.sa_handler = manejador_SIGINT;
     if (sigaction(SIGINT, &act, NULL) < 0)
@@ -373,6 +374,16 @@ int main(int argc, char **argv)
         }
     }
 
+    print_blocks_to_file(b, 1, pf);
+    mq_close(mq);
+    fclose(pf);
+    free(workers);
+    free(workers_data);
+    shm_unlink(SHM_NAME_NET);
+    munmap(nd, sizeof(*nd));
+    munmap(block_shared, sizeof(*block_shared));
+    shm_unlink(SHM_NAME_BLOCK);
+    blocks_free(b);
     exit(EXIT_SUCCESS);
 }
 
@@ -481,11 +492,11 @@ int sol_found_dependancies(Block **b, Block *sb, FILE *pf, pthread_t *workers, W
     }
     /* Establezco el siguiente bloque */
     print_blocks_to_file(*b, 1, pf);
-    /*if (mq_send(*mq, (char *)*b, sizeof(**b), 1) == -1 && !end)
+    if (mq_send(*mq, (char *)*b, sizeof(**b), 1) == -1 && !end)
     {
         printf("Error en el enviado del bloque \n");
         return -1;
-    }*/
+    }
 
     /*b->next = next;*/
     /* Y apunto al siguiente bloque*/
