@@ -4,9 +4,11 @@ EXE = minero monitor
 CODE = miner 
 all : $(EXE) 
 
-.PHONY : clean
+.PHONY : clean miner_cl
 clean : 
-	rm $(EXE) $(CODE) *.o
+	rm $(EXE)  *.o
+miner_cl:
+	rm $(CODE)
 
 $(EXE) : % : %.o  miner.o
 	$(CC) $(CFLAGS) -o $@ $@.o miner.o -pthread -lrt

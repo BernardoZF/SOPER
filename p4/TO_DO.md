@@ -4,7 +4,7 @@
 1.  Minar con distintos trabajadores(hilos)   ✔️
 2.  Crear los bloques y almacenarlos  ✔️
 3.  Crear monitor para que imprima la informacion ya que ahora lo hace el programa minero y esto no deberia ser asi ✔️
-4.  Manejar la señal SIGUSR2 para detener ejecucion
+4.  Manejar la señal SIGUSR2 para detener ejecucion ✔️ DONE
 5.  Todo lo de la red de mineros que se hace con archivos compartidos
 6.  Manejar SIGUSR1 para saber si un minero esta activo o no
 7.  Volver a manejar SIUSR2 para iniciar el proceso de votacion
@@ -29,7 +29,11 @@
     
 **RED**
 1. Esto es abrir secciones de mem compartida y que se acceda a ella desde mineros 
-2. Mirar todo lo de mensajes y demas
+2. Un minero se ha unido a la red cuando abre la memoria compartida
+3. **Se pueden meter semaforos en la estructura compartida**
+4. Los mineros pueden acabar y salir en cualquiere momento [dejar su posicion de memoria compartida libre y cerrar dicha memoria]
+5. El miero ganador cambia los datos de memoria compartida [semaforo mutex]
+6. Ser robusto frente a bloqueos (ejemplo dado si se queda esperando de mas antes de iniciar otra ronda recibir alarma y acabar) [un poco paranoia tbh] 
 
 **MIRAR EL RESTO CUANDO SEA NECESARIO**
 

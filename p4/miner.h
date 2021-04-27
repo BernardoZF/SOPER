@@ -1,4 +1,5 @@
 #include <unistd.h>
+#include <semaphore.h>
 
 #define OK 0
 #define MAX_WORKERS 10
@@ -14,7 +15,7 @@ typedef struct _Block {
     long int target;
     long int solution;
     int id;
-    int is_valid; // si es valido le ponemos  = 2 si no  = 1
+    int is_valid; 
     struct _Block *next;
     struct _Block *prev;
 } Block;
@@ -26,6 +27,7 @@ typedef struct _NetData {
     int total_miners;
     pid_t monitor_pid;
     pid_t last_winner;
+    sem_t mutex;
 } NetData;
 
 long int simple_hash(long int number);

@@ -93,7 +93,8 @@ int main(int argc, char **argv)
             }
             /* COMPROBAMOS SI NO ESTA */
             //print_blocks(&b, 1);
-            for (int i = 0, flag = 0; i < 10; i++)
+            flag = 0;
+            for (int i = 0; i < 10; i++)
             {
                 if (b.id == blocks[i].id)
                 {
