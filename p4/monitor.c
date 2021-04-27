@@ -114,6 +114,7 @@ int main(int argc, char **argv)
             if (end)
             {
                 /* LIBERAR TODA LA MEMORIA */
+                close(fd[1]);
                 mq_close(mq);
                 wait(NULL);
                 exit(EXIT_SUCCESS);
@@ -141,46 +142,34 @@ int main(int argc, char **argv)
             perror("sigaction");
             exit(EXIT_FAILURE);
         }
-        b = (Block *)malloc(sizeof(Block));
 
         do
         {
             if (alarm(5))
             {
             }
-            if (turn)
-            {
-                next = (Block *)malloc(sizeof(Block));
 
-                n_bytes = read(fd[0], (void *)next, sizeof(*next));
-                if (n_bytes == -1 && !end)
-                {
-                    perror("read");
-                    exit(EXIT_FAILURE);
-                }
-            }
-            else
+            next = (Block *)malloc(sizeof(Block));
+
+            n_bytes = read(fd[0], (void *)next, sizeof(*next));
+            if (n_bytes == -1 && !end)
             {
-                n_bytes = read(fd[0], (void *)b, sizeof(*b));
-                if (n_bytes == -1 && !end)
-                {
-                    perror("read");
-                    exit(EXIT_FAILURE);
-                }
+                perror("read");
+                exit(EXIT_FAILURE);
             }
 
-            if (turn)
+            if (b)
             {
                 b->next = next;
+                next->prev = b;
             }
-            if (turn)
-            {
-                b = next;
-            }
+            b = next;
 
             if (end)
             {
                 /* Liberar memoria */
+                blocks_free(b);
+                close(fd[0]);
                 exit(EXIT_SUCCESS);
             }
             if (got_alarm)

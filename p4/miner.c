@@ -42,6 +42,18 @@ void print_blocks_to_file(Block *plast_block, int num_wallets, FILE  *pf) {
     /*fprintf(pf, "A total of %d blocks were printed\n", i);
     fflush(pf);*/
 }
+
+void blocks_free(Block *plast_block) {
+    Block * block;
+    Block * aux;
+    block = plast_block;
+    while(block->prev != NULL){
+        aux = block->prev;
+        free(block);
+        block = aux;
+    }
+    free(block);     
+}
 /*int main(int argc, char *argv[]) {
     long int i, target;
 
