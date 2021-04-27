@@ -8,6 +8,7 @@
 #include <fcntl.h>
 #include <mqueue.h>
 #include <sys/mman.h>
+#include <semaphore.h>
 
 #define PRIME 99997669
 #define MAX_LENGTH 256
@@ -55,6 +56,7 @@ Block *create_new_block(Block *prev);
 /**
  * @brief Funcion que gestiona todas las dependencias de haber encontrado una solucion
  * @param b puntero a la direccion de memria en la que esta el bloque local actual
+ * @param sb puntero al bloque compartido
  * @param pf puntero al fichero al que imprimiremos
  * @param workers puntero al conjunto de hilos que tiene el proceso 
  * @param workers_data puntero a la estructura que se le pasa a cada uno de los hilos
@@ -62,7 +64,7 @@ Block *create_new_block(Block *prev);
  * 
  * @return devuelve -1 en caso de error, si no hubo error devuelve 0
  */
-int sol_found_dependancies(Block **b, FILE *pf, pthread_t *workers, Wd *workers_data, mqd_t *mq);
+int sol_found_dependancies(Block **b, Block *sb, FILE *pf, pthread_t *workers, Wd *workers_data, mqd_t *mq);
 
 /**
  * @brief esta funcion actualiza el bloque que esta en memoria compartida
@@ -73,7 +75,8 @@ void shared_block_f5(Block *sb, int wallet);
 
 int main(int argc, char **argv)
 {
-    int fd_shm;
+    int fd_shm_net;
+    int fd_shm_block;
     int n_workers;
     int n_cycles;
     pthread_t *workers = NULL;
@@ -173,7 +176,6 @@ int main(int argc, char **argv)
     if (!b)
     {
         mq_close(mq);
-
         printf("error en la reserva de memoria del bloque");
         fclose(pf);
         free(workers);
@@ -181,10 +183,9 @@ int main(int argc, char **argv)
         return -1;
     }
 
-    if ((fd_shm = shm_open(SHM_NAME_NET, O_RDWR | O_CREAT | O_EXCL, S_IRUSR | S_IWUSR)) == -1)
+    if ((fd_shm_net = shm_open(SHM_NAME_NET, O_RDWR | O_CREAT | O_EXCL, S_IRUSR | S_IWUSR)) == -1)
     {
         mq_close(mq);
-
         free(b);
         fclose(pf);
         free(workers);
@@ -195,7 +196,7 @@ int main(int argc, char **argv)
     printf("Archivo creado con exito\n");
 
     /* Resize of the memory segment. */
-    if (ftruncate(fd_shm, sizeof(NetData)) == -1)
+    if (ftruncate(fd_shm_net, sizeof(NetData)) == -1)
     {
         mq_close(mq);
 
@@ -209,8 +210,8 @@ int main(int argc, char **argv)
     }
 
     /* Mapping of the memory segment. */
-    nd = (NetData *)mmap(NULL, sizeof(NetData), PROT_READ | PROT_WRITE, MAP_SHARED, fd_shm, 0);
-    close(fd_shm);
+    nd = (NetData *)mmap(NULL, sizeof(NetData), PROT_READ | PROT_WRITE, MAP_SHARED, fd_shm_net, 0);
+    close(fd_shm_net);
     if (nd == MAP_FAILED)
     {
         mq_close(mq);
@@ -224,22 +225,22 @@ int main(int argc, char **argv)
         exit(EXIT_FAILURE);
     }
 
-    if ((fd_shm = shm_open(SHM_NAME_BLOCK, O_RDWR | O_CREAT | O_EXCL, S_IRUSR | S_IWUSR)) == -1)
+    if ((fd_shm_block = shm_open(SHM_NAME_BLOCK, O_RDWR | O_CREAT | O_EXCL, S_IRUSR | S_IWUSR)) == -1)
     {
         mq_close(mq);
-
         free(b);
         fclose(pf);
         free(workers);
         free(workers_data);
         shm_unlink(SHM_NAME_NET);
+        munmap(nd, sizeof(*nd));
         perror("shm_open");
         exit(EXIT_FAILURE);
     }
     printf("Archivo creado con exito\n");
 
     /* Resize of the memory segment. */
-    if (ftruncate(fd_shm, sizeof(Block)) == -1)
+    if (ftruncate(fd_shm_block, sizeof(Block)) == -1)
     {
         mq_close(mq);
         free(b);
@@ -247,16 +248,24 @@ int main(int argc, char **argv)
         free(workers);
         free(workers_data);
         shm_unlink(SHM_NAME_NET);
+        munmap(nd, sizeof(*nd));
         perror("ftruncate");
         shm_unlink(SHM_NAME_BLOCK);
         exit(EXIT_FAILURE);
     }
 
     /* Mapping of the memory segment. */
-    block_shared = (Block *)mmap(NULL, sizeof(Block), PROT_READ | PROT_WRITE, MAP_SHARED, fd_shm, 0);
-    close(fd_shm);
+    block_shared = (Block *)mmap(NULL, sizeof(Block), PROT_READ | PROT_WRITE, MAP_SHARED, fd_shm_block, 0);
+    close(fd_shm_block);
     if (nd == MAP_FAILED)
     {
+        mq_close(mq);
+        free(b);
+        fclose(pf);
+        free(workers);
+        free(workers_data);
+        shm_unlink(SHM_NAME_NET);
+        munmap(nd, sizeof(*nd));
         perror("mmap");
         shm_unlink(SHM_NAME_BLOCK);
         exit(EXIT_FAILURE);
@@ -291,8 +300,23 @@ int main(int argc, char **argv)
 
             if (sol_found)
             {
-                if (sol_found_dependancies(&b, pf, workers, workers_data, &mq) == -1)
-                    return -1;
+                if (sol_found_dependancies(&b, block_shared, pf, workers, workers_data, &mq) == -1)
+                {
+                    mq_close(mq);
+                    fclose(pf);
+                    free(workers);
+                    free(workers_data);
+                    shm_unlink(SHM_NAME_NET);
+                    munmap(nd, sizeof(*nd));
+                    munmap(block_shared, sizeof(*block_shared));
+                    shm_unlink(SHM_NAME_BLOCK);
+                    blocks_free(b);
+                }
+                else
+                {
+                    /* De momento el wallet va a ser 0 pero tendremos que obtener que wallet es este proceso */
+                    shared_block_f5(block_shared, 0);
+                }
             }
             else if (stop)
             {
@@ -324,9 +348,22 @@ int main(int argc, char **argv)
 
             if (sol_found)
             {
-                if (sol_found_dependancies(&b, pf, workers, workers_data, &mq) == -1)
+                if (sol_found_dependancies(&b, block_shared, pf, workers, workers_data, &mq) == -1)
                 {
-                    break;
+                    mq_close(mq);
+                    fclose(pf);
+                    free(workers);
+                    free(workers_data);
+                    shm_unlink(SHM_NAME_NET);
+                    munmap(nd, sizeof(*nd));
+                    munmap(block_shared, sizeof(*block_shared));
+                    shm_unlink(SHM_NAME_BLOCK);
+                    blocks_free(b);
+                }
+                else
+                {
+                    /* De momento el wallet va a ser 0 pero tendremos que obtener que wallet es este proceso */
+                    shared_block_f5(block_shared, 0);
                 }
             }
             else if (stop)
@@ -415,17 +452,23 @@ Block *create_new_block(Block *prev)
     return b;
 }
 
-int sol_found_dependancies(Block **b, FILE *pf, pthread_t *workers, Wd *workers_data, mqd_t *mq)
+int sol_found_dependancies(Block **b, Block *sb, FILE *pf, pthread_t *workers, Wd *workers_data, mqd_t *mq)
 {
     Block *next;
 
-    if (!b || !pf || !workers || !workers_data || !mq)
+    if (!b || !sb || !pf || !workers || !workers_data || !mq)
     {
         return -1;
     }
     /* actualizo la solucion */
+    sb->solution = solution;
     (*b)->solution = solution;
+
+    /* hasta que no se cree el sitema de votacion esto se queda
+     como por defecto a que la solucion es valida */
+    sb->is_valid = 1;
     (*b)->is_valid = 1;
+
     /* Creo el siguiente bloque */
     next = create_new_block(*b);
     if (!next)
@@ -438,11 +481,11 @@ int sol_found_dependancies(Block **b, FILE *pf, pthread_t *workers, Wd *workers_
     }
     /* Establezco el siguiente bloque */
     print_blocks_to_file(*b, 1, pf);
-    if (mq_send(*mq, (char *)*b, sizeof(**b), 1) == -1 && !end)
+    /*if (mq_send(*mq, (char *)*b, sizeof(**b), 1) == -1 && !end)
     {
         printf("Error en el enviado del bloque \n");
         return -1;
-    }
+    }*/
 
     /*b->next = next;*/
     /* Y apunto al siguiente bloque*/
