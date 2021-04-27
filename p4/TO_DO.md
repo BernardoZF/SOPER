@@ -1,9 +1,9 @@
-TO DO 
+# TO DO 
 
 **MINERO** 
 1.  Minar con distintos trabajadores(hilos)   ✔️
 2.  Crear los bloques y almacenarlos  ✔️
-3.  Crear monitor para que imprima la informacion ya que ahora lo hace el programa minero y esto no deberia ser asi 
+3.  Crear monitor para que imprima la informacion ya que ahora lo hace el programa minero y esto no deberia ser asi ✔️
 4.  Manejar la señal SIGUSR2 para detener ejecucion
 5.  Todo lo de la red de mineros que se hace con archivos compartidos
 6.  Manejar SIGUSR1 para saber si un minero esta activo o no
@@ -11,7 +11,7 @@ TO DO
 8.  Crear sistema de votacion
 9.  Todos los mineros agregan el bloque en caso de que sea aceptado en votacion [COMUNISMO O LIBERTAD]
 10. Preparar nuevo bloque y otro ronda ✔️ podria decirse que funciona a falta de añadir cosas
-11. **Si hay monitor**  enviar por cola el nuevo bloque cada uno de los mineros si es correcto prioridad 2 si no 1
+11. **Si hay monitor**  enviar por cola el nuevo bloque cada uno de los mineros si es correcto prioridad 2 si no 1 ✔️ IMPLEMENTADO PARA CUANDO SOLO HAY 1 MINERO 
 12. Implementar funcion para imprimir cadena de bloques de un minero a un fichero identificado con nombre igual al PID ✔️ Funciona de momento
 13. Manejar SIGINT para acabar ✔️ a falta de cambios esto funciona 
 
@@ -34,7 +34,7 @@ TO DO
 **MIRAR EL RESTO CUANDO SEA NECESARIO**
 
 
-**DONE**
+# DONE
 
 1.  El minero multihilo capaz de generar una cadena de bloques  [2pts] :+1:
 
