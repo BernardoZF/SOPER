@@ -28,6 +28,7 @@ typedef struct _NetData {
     pid_t monitor_pid;
     pid_t last_winner;
     sem_t mutex;
+    sem_t start;
 } NetData;
 
 long int simple_hash(long int number);

@@ -62,10 +62,11 @@ Block *create_new_block(Block *prev);
  * @param workers puntero al conjunto de hilos que tiene el proceso 
  * @param workers_data puntero a la estructura que se le pasa a cada uno de los hilos
  * @param mq puntero a la cola de mensajes que se comunica con el monitor
+ * @param nd puntero de la memoria compartida de la red
  * 
  * @return devuelve -1 en caso de error, si no hubo error devuelve 0
  */
-int sol_found_dependancies(Block **b, Block *sb, FILE *pf, pthread_t *workers, Wd *workers_data, mqd_t *mq);
+int sol_found_dependancies(Block **b, Block *sb, FILE *pf, pthread_t *workers, Wd *workers_data, mqd_t *mq, NetData *nd);
 
 /**
  * @brief esta funcion actualiza el bloque que esta en memoria compartida
@@ -265,6 +266,18 @@ int main(int argc, char **argv)
             munmap(nd, sizeof(*nd));
             exit(EXIT_FAILURE);
         }
+        if (sem_init(&nd->start, 1, 1) == -1)
+        {
+            sem_close(&nd->mutex);
+            mq_close(mq);
+            free(b);
+            fclose(pf);
+            free(workers);
+            free(workers_data);
+            shm_unlink(SHM_NAME_NET);
+            munmap(nd, sizeof(*nd));
+            exit(EXIT_FAILURE);
+        }
         nd->miners_pid[nd->last_miner] = getpid();
         wallet = nd->last_miner;
     }
@@ -365,7 +378,7 @@ int main(int argc, char **argv)
 
             if (sol_found)
             {
-                if (sol_found_dependancies(&b, block_shared, pf, workers, workers_data, &mq) == -1)
+                if (sol_found_dependancies(&b, block_shared, pf, workers, workers_data, &mq, nd) == -1)
                 {
                     mq_close(mq);
                     fclose(pf);
@@ -385,6 +398,7 @@ int main(int argc, char **argv)
             }
             else if (stop)
             {
+                sem_wait(&nd->start);
                 // Gestionar para la votacion
             }
         }
@@ -413,7 +427,7 @@ int main(int argc, char **argv)
 
             if (sol_found)
             {
-                if (sol_found_dependancies(&b, block_shared, pf, workers, workers_data, &mq) == -1)
+                if (sol_found_dependancies(&b, block_shared, pf, workers, workers_data, &mq, nd) == -1)
                 {
                     mq_close(mq);
                     fclose(pf);
@@ -433,8 +447,9 @@ int main(int argc, char **argv)
                     sem_post(&nd->mutex);
                 }
             }
-            else if (stop)
+            else if (stop && !sol_found)
             {
+                sem_wait(&nd->start);
                 // Gestionar para la votacion
             }
         }
@@ -529,7 +544,7 @@ Block *create_new_block(Block *prev)
     return b;
 }
 
-int sol_found_dependancies(Block **b, Block *sb, FILE *pf, pthread_t *workers, Wd *workers_data, mqd_t *mq)
+int sol_found_dependancies(Block **b, Block *sb, FILE *pf, pthread_t *workers, Wd *workers_data, mqd_t *mq, NetData *nd)
 {
     Block *next;
 
@@ -537,6 +552,7 @@ int sol_found_dependancies(Block **b, Block *sb, FILE *pf, pthread_t *workers, W
     {
         return -1;
     }
+    kill(0, SIGUSR2);
     /* actualizo la solucion */
     sb->solution = solution;
     (*b)->solution = solution;
@@ -557,7 +573,6 @@ int sol_found_dependancies(Block **b, Block *sb, FILE *pf, pthread_t *workers, W
         return -1;
     }
     /* Establezco el siguiente bloque */
-    print_blocks_to_file(*b, 1, pf);
     if (mq_send(*mq, (char *)*b, sizeof(**b), 1) == -1 && !end)
     {
         printf("Error en el enviado del bloque \n");
@@ -569,6 +584,9 @@ int sol_found_dependancies(Block **b, Block *sb, FILE *pf, pthread_t *workers, W
     *b = next;
 
     sol_found = 0;
+    for (int i = 0; i< nd->total_miners; i++){
+        sem_post(&nd->start);
+    }
     return 0;
 }
 
