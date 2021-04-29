@@ -552,7 +552,12 @@ int sol_found_dependancies(Block **b, Block *sb, FILE *pf, pthread_t *workers, W
     {
         return -1;
     }
-    kill(0, SIGUSR2);
+    for(int i = 0; i < MAX_MINERS ; i++){
+        if(nd->miners_pid[i] && nd->miners_pid[i] != getpid()){
+            kill(nd->miners_pid[i], SIGUSR2);
+        }
+    }
+    //kill(0, SIGUSR2);
     /* actualizo la solucion */
     sb->solution = solution;
     (*b)->solution = solution;
@@ -584,7 +589,7 @@ int sol_found_dependancies(Block **b, Block *sb, FILE *pf, pthread_t *workers, W
     *b = next;
 
     sol_found = 0;
-    for (int i = 0; i< nd->total_miners; i++){
+    for (int i = 0; i< nd->total_miners -1; i++){
         sem_post(&nd->start);
     }
     return 0;

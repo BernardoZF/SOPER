@@ -41,4 +41,3 @@
 # DONE
 
 1.  El minero multihilo capaz de generar una cadena de bloques  [2pts] :+1:
-
