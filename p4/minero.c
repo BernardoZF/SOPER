@@ -316,6 +316,7 @@ int main(int argc, char **argv)
     }
     else
     {
+        first_block = 1;
         /* Resize of the memory segment. */
         if (ftruncate(fd_shm_block, sizeof(Block)) == -1)
         {
@@ -348,12 +349,16 @@ int main(int argc, char **argv)
         shm_unlink(SHM_NAME_BLOCK);
         exit(EXIT_FAILURE);
     }
-    block_shared->target = 1;
-    block_shared->solution = -1;
-    block_shared->id = 1;
-    block_shared->is_valid = 0;
-    block_shared->prev = NULL;
-    block_shared->next = NULL;
+
+    if (first_block)
+    {
+        block_shared->target = 1;
+        block_shared->solution = -1;
+        block_shared->id = 1;
+        block_shared->is_valid = 0;
+        block_shared->prev = NULL;
+        block_shared->next = NULL;
+    }
 
     /* Rondas pasadas como argumento */
     if (n_cycles > 0)
@@ -456,6 +461,7 @@ int main(int argc, char **argv)
     }
 
     print_blocks_to_file(b, 1, pf);
+
     mq_close(mq);
     fclose(pf);
     free(workers);
@@ -538,7 +544,7 @@ Block *create_new_block(Block *prev)
     b->solution = -1;
     b->id = prev->id + 1;
     b->is_valid = 0;
-    b->prev = NULL;
+    b->prev = prev;
     b->next = NULL;
 
     return b;
@@ -552,8 +558,10 @@ int sol_found_dependancies(Block **b, Block *sb, FILE *pf, pthread_t *workers, W
     {
         return -1;
     }
-    for(int i = 0; i < MAX_MINERS ; i++){
-        if(nd->miners_pid[i] && nd->miners_pid[i] != getpid()){
+    for (int i = 0; i < MAX_MINERS; i++)
+    {
+        if (nd->miners_pid[i] && nd->miners_pid[i] != getpid())
+        {
             kill(nd->miners_pid[i], SIGUSR2);
         }
     }
@@ -589,7 +597,8 @@ int sol_found_dependancies(Block **b, Block *sb, FILE *pf, pthread_t *workers, W
     *b = next;
 
     sol_found = 0;
-    for (int i = 0; i< nd->total_miners -1; i++){
+    for (int i = 0; i < nd->total_miners - 1; i++)
+    {
         sem_post(&nd->start);
     }
     return 0;
