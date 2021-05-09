@@ -165,7 +165,7 @@ int main(int argc, char **argv)
         close(fd[1]);
         FILE *pf = NULL;
         
-        pf = fopen(filename, "w");
+        pf = fopen("log.txt", "w");
         if (!pf)
         {
             printf("Error abriendo archivo log del monitor");
