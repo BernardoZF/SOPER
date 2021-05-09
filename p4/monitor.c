@@ -213,7 +213,8 @@ int main(int argc, char **argv)
             {
                 /* Falta obtener el numero de wallets que hay que no se como implementarlo */
                 /* Ademas de todo lo de recepcion de bloques por tuberia */
-                print_blocks(b, 1);
+                print_blocks_to_file(b, 1, pf);
+                //print_blocks(b, 1);
 
                 got_alarm = 0;
             }
