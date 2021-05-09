@@ -62,7 +62,6 @@ Block *create_new_block(Block *prev);
  * @param workers puntero al conjunto de hilos que tiene el proceso 
  * @param workers_data puntero a la estructura que se le pasa a cada uno de los hilos
  * @param mq puntero a la cola de mensajes que se comunica con el monitor
- * @param nd puntero de la memoria compartida de la red
  * 
  * @return devuelve -1 en caso de error, si no hubo error devuelve 0
  */
@@ -90,7 +89,6 @@ int main(int argc, char **argv)
     Block *block_shared;
     struct sigaction act;
     FILE *pf = NULL;
-    NetData *nd;
 
     struct mq_attr attributes = {
         .mq_flags = 0,
@@ -186,168 +184,6 @@ int main(int argc, char **argv)
         free(workers);
         free(workers_data);
         return -1;
-    }
-
-    fd_shm_net = shm_open(SHM_NAME_NET, O_RDWR | O_CREAT | O_EXCL, S_IRUSR | S_IWUSR);
-    /* Si hay error */
-    if (fd_shm_net == -1)
-    { /*Compruebo si el error es porque existe */
-        if (errno == EEXIST)
-        { /* Si es porque existe entonces no lo creo y solo lo abro */
-            fd_shm_net = shm_open(SHM_NAME_NET, O_RDWR, 0);
-            if (fd_shm_net == -1)
-            {
-                perror("Error opening the shared memory segment");
-                exit(EXIT_FAILURE);
-            }
-        }
-        /* Errores creando el archivo */
-        else
-        {
-            mq_close(mq);
-            free(b);
-            fclose(pf);
-            free(workers);
-            free(workers_data);
-            perror("shm_open");
-            exit(EXIT_FAILURE);
-            exit(EXIT_FAILURE);
-        }
-    }
-    /* Este archivo crea el archivo compartido por lo tanto tiene que truncar el archivo */
-    else
-    {
-        first_net = 1;
-        if (ftruncate(fd_shm_net, sizeof(NetData)) == -1)
-        {
-            mq_close(mq);
-
-            free(b);
-            fclose(pf);
-            free(workers);
-            free(workers_data);
-            perror("ftruncate");
-            shm_unlink(SHM_NAME_NET);
-            exit(EXIT_FAILURE);
-        }
-    }
-    /* Resize of the memory segment. */
-
-    /* Mapping of the memory segment. */
-    nd = (NetData *)mmap(NULL, sizeof(NetData), PROT_READ | PROT_WRITE, MAP_SHARED, fd_shm_net, 0);
-    close(fd_shm_net);
-    if (nd == MAP_FAILED)
-    {
-        mq_close(mq);
-
-        free(b);
-        fclose(pf);
-        free(workers);
-        free(workers_data);
-        perror("mmap");
-        shm_unlink(SHM_NAME_NET);
-        exit(EXIT_FAILURE);
-    }
-
-    if (first_net)
-    {
-        nd->total_miners = 1;
-        nd->last_miner = 0;
-        nd->last_winner = getpid();
-        if (sem_init(&nd->mutex, 1, 1) == -1)
-        {
-            mq_close(mq);
-
-            free(b);
-            fclose(pf);
-            free(workers);
-            free(workers_data);
-            shm_unlink(SHM_NAME_NET);
-            munmap(nd, sizeof(*nd));
-            exit(EXIT_FAILURE);
-        }
-        if (sem_init(&nd->start, 1, 1) == -1)
-        {
-            sem_close(&nd->mutex);
-            mq_close(mq);
-            free(b);
-            fclose(pf);
-            free(workers);
-            free(workers_data);
-            shm_unlink(SHM_NAME_NET);
-            munmap(nd, sizeof(*nd));
-            exit(EXIT_FAILURE);
-        }
-        nd->miners_pid[nd->last_miner] = getpid();
-        wallet = nd->last_miner;
-    }
-    else
-    {
-        nd->total_miners++;
-        nd->last_miner++;
-        nd->miners_pid[nd->last_miner] = getpid();
-        wallet = nd->last_miner;
-    }
-
-    fd_shm_block = shm_open(SHM_NAME_BLOCK, O_RDWR | O_CREAT | O_EXCL, S_IRUSR | S_IWUSR);
-    if (fd_shm_block == -1)
-    {
-        if (errno == EEXIST)
-        {
-            fd_shm_block = shm_open(SHM_NAME_BLOCK, O_RDWR, 0);
-            if (fd_shm_block == -1)
-            {
-                perror("Error opening the shared memory segment");
-                exit(EXIT_FAILURE);
-            }
-        }
-        else
-        {
-            mq_close(mq);
-            free(b);
-            fclose(pf);
-            free(workers);
-            free(workers_data);
-            shm_unlink(SHM_NAME_NET);
-            munmap(nd, sizeof(*nd));
-            perror("shm_open");
-            exit(EXIT_FAILURE);
-        }
-    }
-    else
-    {
-        first_block = 1;
-        /* Resize of the memory segment. */
-        if (ftruncate(fd_shm_block, sizeof(Block)) == -1)
-        {
-            mq_close(mq);
-            free(b);
-            fclose(pf);
-            free(workers);
-            free(workers_data);
-            shm_unlink(SHM_NAME_NET);
-            munmap(nd, sizeof(*nd));
-            perror("ftruncate");
-            shm_unlink(SHM_NAME_BLOCK);
-            exit(EXIT_FAILURE);
-        }
-    }
-
-    /* Mapping of the memory segment. */
-    block_shared = (Block *)mmap(NULL, sizeof(Block), PROT_READ | PROT_WRITE, MAP_SHARED, fd_shm_block, 0);
-    close(fd_shm_block);
-    if (nd == MAP_FAILED)
-    {
-        mq_close(mq);
-        free(b);
-        fclose(pf);
-        free(workers);
-        free(workers_data);
-        shm_unlink(SHM_NAME_NET);
-        munmap(nd, sizeof(*nd));
-        perror("mmap");
-        shm_unlink(SHM_NAME_BLOCK);
-        exit(EXIT_FAILURE);
     }
 
     if (first_block)
@@ -467,7 +303,6 @@ int main(int argc, char **argv)
     free(workers);
     free(workers_data);
     shm_unlink(SHM_NAME_NET);
-    munmap(nd, sizeof(*nd));
     munmap(block_shared, sizeof(*block_shared));
     shm_unlink(SHM_NAME_BLOCK);
     blocks_free(b);
