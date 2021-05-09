@@ -57,7 +57,6 @@ Block *create_new_block(Block *prev);
 /**
  * @brief Funcion que gestiona todas las dependencias de haber encontrado una solucion
  * @param b puntero a la direccion de memria en la que esta el bloque local actual
- * @param sb puntero al bloque compartido
  * @param pf puntero al fichero al que imprimiremos
  * @param workers puntero al conjunto de hilos que tiene el proceso 
  * @param workers_data puntero a la estructura que se le pasa a cada uno de los hilos
@@ -65,7 +64,7 @@ Block *create_new_block(Block *prev);
  * 
  * @return devuelve -1 en caso de error, si no hubo error devuelve 0
  */
-int sol_found_dependancies(Block **b, Block *sb, FILE *pf, pthread_t *workers, Wd *workers_data, mqd_t *mq, NetData *nd);
+int sol_found_dependancies(Block **b, FILE *pf, pthread_t *workers, Wd *workers_data, mqd_t *mq);
 
 /**
  * @brief esta funcion actualiza el bloque que esta en memoria compartida
@@ -76,17 +75,11 @@ void shared_block_f5(Block *sb, int wallet);
 
 int main(int argc, char **argv)
 {
-    int wallet;
-    int fd_shm_net;
-    int fd_shm_block;
     int n_workers;
     int n_cycles;
-    int first_block = 0;
-    int first_net = 0;
     pthread_t *workers = NULL;
     Wd *workers_data = NULL;
     Block *b;
-    Block *block_shared;
     struct sigaction act;
     FILE *pf = NULL;
 
@@ -186,15 +179,6 @@ int main(int argc, char **argv)
         return -1;
     }
 
-    if (first_block)
-    {
-        block_shared->target = 1;
-        block_shared->solution = -1;
-        block_shared->id = 1;
-        block_shared->is_valid = 0;
-        block_shared->prev = NULL;
-        block_shared->next = NULL;
-    }
 
     /* Rondas pasadas como argumento */
     if (n_cycles > 0)
@@ -203,7 +187,7 @@ int main(int argc, char **argv)
         {
             for (int i = 0; i < n_workers; i++)
             {
-                workers_data[i].target = block_shared->target;
+                workers_data[i].target = b->target;
                 workers_data[i].to_check = section * i;
                 workers_data[i].cycles = n_cycles;
             }
@@ -219,29 +203,19 @@ int main(int argc, char **argv)
 
             if (sol_found)
             {
-                if (sol_found_dependancies(&b, block_shared, pf, workers, workers_data, &mq, nd) == -1)
+                if (sol_found_dependancies(&b, pf, workers, workers_data, &mq) == -1)
                 {
                     mq_close(mq);
                     fclose(pf);
                     free(workers);
                     free(workers_data);
                     shm_unlink(SHM_NAME_NET);
-                    munmap(nd, sizeof(*nd));
-                    munmap(block_shared, sizeof(*block_shared));
                     shm_unlink(SHM_NAME_BLOCK);
                     blocks_free(b);
                 }
-                else
-                {
-                    /* De momento el wallet va a ser 0 pero tendremos que obtener que wallet es este proceso */
-                    shared_block_f5(block_shared, wallet);
-                }
+               
             }
-            else if (stop)
-            {
-                sem_wait(&nd->start);
-                // Gestionar para la votacion
-            }
+            
         }
     }
     else
@@ -252,7 +226,7 @@ int main(int argc, char **argv)
 
             for (int i = 0; i < n_workers; i++)
             {
-                workers_data[i].target = block_shared->target; // cambiarlo por el target buscado par cada caso
+                workers_data[i].target = b->target; 
                 workers_data[i].to_check = section * i;
                 workers_data[i].cycles = n_cycles;
             }
@@ -268,30 +242,16 @@ int main(int argc, char **argv)
 
             if (sol_found)
             {
-                if (sol_found_dependancies(&b, block_shared, pf, workers, workers_data, &mq, nd) == -1)
+                if (sol_found_dependancies(&b, pf, workers, workers_data, &mq) == -1)
                 {
                     mq_close(mq);
                     fclose(pf);
                     free(workers);
                     free(workers_data);
                     shm_unlink(SHM_NAME_NET);
-                    munmap(nd, sizeof(*nd));
-                    munmap(block_shared, sizeof(*block_shared));
                     shm_unlink(SHM_NAME_BLOCK);
                     blocks_free(b);
                 }
-                else
-                {
-                    sem_wait(&nd->mutex);
-                    /* De momento el wallet va a ser 0 pero tendremos que obtener que wallet es este proceso */
-                    shared_block_f5(block_shared, wallet);
-                    sem_post(&nd->mutex);
-                }
-            }
-            else if (stop && !sol_found)
-            {
-                sem_wait(&nd->start);
-                // Gestionar para la votacion
             }
         }
     }
@@ -303,7 +263,6 @@ int main(int argc, char **argv)
     free(workers);
     free(workers_data);
     shm_unlink(SHM_NAME_NET);
-    munmap(block_shared, sizeof(*block_shared));
     shm_unlink(SHM_NAME_BLOCK);
     blocks_free(b);
     exit(EXIT_SUCCESS);
@@ -385,29 +344,19 @@ Block *create_new_block(Block *prev)
     return b;
 }
 
-int sol_found_dependancies(Block **b, Block *sb, FILE *pf, pthread_t *workers, Wd *workers_data, mqd_t *mq, NetData *nd)
+int sol_found_dependancies(Block **b, FILE *pf, pthread_t *workers, Wd *workers_data, mqd_t *mq)
 {
     Block *next;
 
-    if (!b || !sb || !pf || !workers || !workers_data || !mq)
+    if (!b || !pf || !workers || !workers_data || !mq)
     {
         return -1;
     }
-    for (int i = 0; i < MAX_MINERS; i++)
-    {
-        if (nd->miners_pid[i] && nd->miners_pid[i] != getpid())
-        {
-            kill(nd->miners_pid[i], SIGUSR2);
-        }
-    }
+
     //kill(0, SIGUSR2);
     /* actualizo la solucion */
-    sb->solution = solution;
     (*b)->solution = solution;
 
-    /* hasta que no se cree el sitema de votacion esto se queda
-     como por defecto a que la solucion es valida */
-    sb->is_valid = 1;
     (*b)->is_valid = 1;
 
     /* Creo el siguiente bloque */
@@ -427,15 +376,12 @@ int sol_found_dependancies(Block **b, Block *sb, FILE *pf, pthread_t *workers, W
         return -1;
     }
 
-    /*b->next = next;*/
+    (*b)->next = next;
     /* Y apunto al siguiente bloque*/
     *b = next;
 
     sol_found = 0;
-    for (int i = 0; i < nd->total_miners - 1; i++)
-    {
-        sem_post(&nd->start);
-    }
+    
     return 0;
 }
 

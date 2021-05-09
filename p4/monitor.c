@@ -28,12 +28,10 @@ void manejador_SIGINT(int sig)
 
 int main(int argc, char **argv)
 {
-    int fd_shm_net;
     struct sigaction act;
     int fd[2];
     int pipe_status;
     pid_t father;
-    NetData * nd;
     struct mq_attr attributes = {
         .mq_flags = 0,
         .mq_maxmsg = 10,
@@ -196,7 +194,7 @@ int main(int argc, char **argv)
             {
                 /* Falta obtener el numero de wallets que hay que no se como implementarlo */
                 /* Ademas de todo lo de recepcion de bloques por tuberia */
-                print_blocks(b, MAX_MINERS);
+                print_blocks(b, 1);
 
                 got_alarm = 0;
             }
