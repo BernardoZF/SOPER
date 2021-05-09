@@ -1,3 +1,13 @@
+/**
+ * @brief Implementa minero con las funcionalidades descritas la memoria
+ *
+ * @file minero.c
+ * @authors Bernardo Zambrano y Luis Nucifora
+ * @version 1.0
+ * @date 5/05/2021
+ * @copyright GNU Public License
+ */
+
 #include <pthread.h>
 #include <stdio.h>
 #include <stdlib.h>
