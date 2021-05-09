@@ -1,3 +1,13 @@
+/**
+ * @brief Implementa monitor con las funcionalidades descritas la memoria
+ *
+ * @file monitor.c
+ * @authors Bernardo Zambrano y Luis Nucifora
+ * @version 1.0
+ * @date 5/05/2021
+ * @copyright GNU Public License
+ */
+
 #include <pthread.h>
 #include <stdio.h>
 #include <stdlib.h>
@@ -153,6 +163,14 @@ int main(int argc, char **argv)
         Block *next;
         ssize_t n_bytes = 0;
         close(fd[1]);
+        FILE *pf = NULL;
+        
+        pf = fopen(filename, "w");
+        if (!pf)
+        {
+            printf("Error abriendo archivo log del monitor");
+            return -1;
+        }
 
         act.sa_handler = manejador_SIGALRM;
         if (sigaction(SIGALRM, &act, NULL) < 0)
@@ -186,6 +204,7 @@ int main(int argc, char **argv)
             if (end)
             {
                 /* Liberar memoria */
+                fclose(pf);
                 blocks_free(b);
                 close(fd[0]);
                 exit(EXIT_SUCCESS);
@@ -201,5 +220,9 @@ int main(int argc, char **argv)
             turn++;
             sleep(5);
         } while (n_bytes != 0);
+        fclose(pf);
+        blocks_free(b);
+        close(fd[0]);
+        exit(EXIT_SUCCESS);
     }
 }
